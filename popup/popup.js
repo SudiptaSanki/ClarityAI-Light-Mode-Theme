@@ -31,7 +31,7 @@ if (!document.getElementById("debugButton")) {
       
 Active Tab: ${tab?.url || 'None'}
 API Key: ${storage.geminiApiKey ? '✅ Set' : '❌ Not set'}
-Model: ${storage.model || 'gemini-1.5-flash'}
+Model: ${storage.model || 'gemini-2.5-flash'}
 Style: ${storage.summaryStyle || 'short'}
 Storage Keys: ${Object.keys(storage).join(', ')}`;
     } catch (e) {
@@ -224,7 +224,7 @@ testApiButton.addEventListener("click", async () => {
   testApiButton.textContent = "Testing...";
   
   try {
-    const { geminiApiKey, model = "gemini-1.5-flash" } = await chrome.storage.local.get(["geminiApiKey", "model"]);
+    const { geminiApiKey, model = "gemini-2.5-flash" } = await chrome.storage.local.get(["geminiApiKey", "model"]);
     
     if (!geminiApiKey) {
       outputPre.textContent = "No API key found. Please set your API key in Settings.";
