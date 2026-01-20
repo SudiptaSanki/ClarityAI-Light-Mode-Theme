@@ -7,7 +7,7 @@ const statusEl = document.getElementById("status");
 
 async function load() {
   const {
-    model = "gemini-1.5-flash",
+    model = "gemini-2.5-flash",
     geminiApiKey = "",
     summaryStyle = "short"
   } = (await chrome.storage.local.get([
@@ -21,7 +21,7 @@ async function load() {
 }
 
 async function save() {
-  const model = modelInput.value.trim() || "gemini-1.5-flash";
+  const model = modelInput.value.trim() || "gemini-2.5-flash";
   const geminiApiKey = geminiKeyInput.value.trim();
   const summaryStyle = styleSelect.value;
   
@@ -64,7 +64,7 @@ async function testApiKey() {
     // Add a small delay to prevent rate limiting
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
