@@ -1,5 +1,5 @@
-## ❗Note this extension was build on gemini-1.5-flash but now it is no longer available so we need to update to latest version gemini-2.5-flash (JAN 2026).
-## If you are already using this then download the new version or go to code using any IDE platform like VScode search for gemini-1.5-flash replace with gemini-2.5-flash then from browser reload or remove old one and unpack this extension again.❗
+## ❗Note this extension was build on gemini-1.5-flash but now it is no longer available so we need to update to latest version gemini-3.1-flash (APR 2026).
+## If you are already using this then download the new version or go to code using any IDE platform like VScode search for gemini-1.5-flash replace with gemini-3.1-flash then from browser reload or remove old one and unpack this extension again.❗
 
 # ClarityAI Extension (Light Mode Theme)
 
