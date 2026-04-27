@@ -7,7 +7,7 @@ const statusEl = document.getElementById("status");
 
 async function load() {
   const {
-    model = "gemini-2.5-flash",
+    model = "gemini-3.1-flash",
     geminiApiKey = "",
     summaryStyle = "short"
   } = (await chrome.storage.local.get([
@@ -21,7 +21,7 @@ async function load() {
 }
 
 async function save() {
-  const model = modelInput.value.trim() || "gemini-2.5-flash";
+  const model = modelInput.value.trim() || "gemini-3.1-flash";
   const geminiApiKey = geminiKeyInput.value.trim();
   const summaryStyle = styleSelect.value;
   
