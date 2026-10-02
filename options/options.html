@@ -1,51 +1,261 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ClarityAI Settings</title>
+    <title>ClarityAI Settings - Model & Provider Configuration</title>
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
-    <div class="container">
-      <div class="card">
-        <h1>Settings</h1>
-        <div class="grid">
-          <div class="row">
-            <label>Model</label>
-            <input id="model" placeholder="gemini-3.1-flash" />
+    <div class="page-layout">
+      <!-- Sidebar / Header -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <img src="../SmartSummarizer Logo with Paper and Digital Interface.png" alt="ClarityAI" class="brand-logo" />
+          <div>
+            <h1 class="brand-title">ClarityAI</h1>
+            <p class="brand-desc">Universal AI Web Intelligence</p>
           </div>
-          <div class="row">
-            <label>Summary style</label>
-            <select id="summaryStyle">
-              <option value="short">Short</option>
-              <option value="bullets">Bullets</option>
-              <option value="detailed">Detailed</option>
-            </select>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="#providers-section" class="nav-item active">AI Model & Provider</a>
+          <a href="#consultation-section" class="nav-item">Consultation Preferences</a>
+          <a href="#quick-presets-section" class="nav-item">Free Key Guide</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="version-tag">Version 0.2.0 &bull; Light Mode</div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <!-- Status Notification Banner -->
+        <div id="statusBanner" class="status-banner hidden"></div>
+
+        <!-- Section: AI Provider & Model Configuration -->
+        <section id="providers-section" class="settings-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">AI Provider & Model Configuration</h2>
+              <p class="card-subtitle">Connect any model from any provider. You are not locked into any specific API.</p>
+            </div>
+            <span id="activeProviderBadge" class="provider-pill">Gemini Active</span>
           </div>
-          <div class="row" style="grid-column: 1 / -1;">
-            <label>Gemini API Key <span style="color: #d93025;">*Required</span></label>
-            <input id="geminiApiKey" placeholder="AIza..." />
-            <div class="help-text">
-              <p>To get your API key:</p>
-              <ol>
-                <li>Go to <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
-                <li>Sign in with your Google account</li>
-                <li>Click "Create API Key"</li>
-                <li>Copy the key and paste it above</li>
-              </ol>
-              <p><strong>Note:</strong> The API key is stored locally in your browser and is not shared.</p>
+
+          <div class="card-body">
+            <!-- 1. Select Provider -->
+            <div class="form-group">
+              <label for="providerSelect" class="form-label">Select AI Provider</label>
+              <select id="providerSelect" class="form-control form-select-lg"></select>
+              <div id="providerTagline" class="form-hint"></div>
+            </div>
+
+            <!-- 2. Model Selection (Preset or Custom input) -->
+            <div class="form-group">
+              <label for="modelInput" class="form-label">
+                Model Name / Version
+                <span class="label-badge">Any model supported</span>
+              </label>
+              <div class="model-input-group">
+                <input 
+                  type="text" 
+                  id="modelInput" 
+                  class="form-control" 
+                  list="modelSuggestionsList" 
+                  placeholder="e.g. gemini-2.5-flash or type any model" 
+                />
+                <datalist id="modelSuggestionsList"></datalist>
+              </div>
+              <div class="form-hint">
+                Pick from suggestions or <strong>type any model version</strong> (e.g. gemini-2.5-flash, llama-3.3-70b-versatile, gpt-4o-mini). Never hardcoded.
+              </div>
+            </div>
+
+            <!-- 3. API Key -->
+            <div class="form-group" id="apiKeyContainer">
+              <label for="apiKeyInput" class="form-label">
+                API Key
+                <span id="apiKeyRequiredLabel" class="label-badge danger">Required</span>
+              </label>
+              <div class="password-wrapper">
+                <input 
+                  type="password" 
+                  id="apiKeyInput" 
+                  class="form-control" 
+                  placeholder="Paste your API key here..." 
+                />
+                <button type="button" id="toggleApiKeyVisibility" class="btn-eye" title="Show/Hide API Key">👁️</button>
+              </div>
+              <div id="keyGuideBox" class="guide-box">
+                <div class="guide-box-header">
+                  <span class="guide-icon">🔑</span>
+                  <strong id="guideTitle">How to get a key:</strong>
+                </div>
+                <div id="guideContent" class="guide-content"></div>
+              </div>
+            </div>
+
+            <!-- 4. Custom Endpoint (For Local / Custom AI) -->
+            <div class="form-group hidden" id="customEndpointContainer">
+              <label for="customEndpointInput" class="form-label">Custom Base Endpoint URL</label>
+              <input 
+                type="text" 
+                id="customEndpointInput" 
+                class="form-control" 
+                placeholder="http://localhost:11434/v1/chat/completions" 
+              />
+              <div class="form-hint">
+                Standard OpenAI-compatible endpoint. Perfect for <strong>Ollama</strong>, <strong>LM Studio</strong>, LocalAI, or custom gateways.
+              </div>
+            </div>
+
+            <!-- Action Buttons for Provider Section -->
+            <div class="actions-row">
+              <button id="testConnectionBtn" class="btn btn-secondary">
+                <span class="btn-icon">⚡</span>
+                <span id="testBtnText">Test Connection</span>
+              </button>
+              <button id="saveSettingsBtn" class="btn btn-primary">
+                <span class="btn-icon">💾</span>
+                <span>Save Configuration</span>
+              </button>
+            </div>
+
+            <!-- Diagnostic Test Output Card -->
+            <div id="diagnosticCard" class="diagnostic-card hidden"></div>
+          </div>
+        </section>
+
+        <!-- Section: Consultation Preferences -->
+        <section id="consultation-section" class="settings-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Consultation Preferences</h2>
+              <p class="card-subtitle">Customize default output styles and model behavior for web analysis.</p>
             </div>
           </div>
-        </div>
-        <div class="actions">
-          <button id="save">Save</button>
-          <button id="testKey">Test API Key</button>
-          <span id="status"></span>
-        </div>
-      </div>
-    </div>
-    <script src="options.js"></script>
-  </body>
-  </html>
 
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="defaultModeSelect" class="form-label">Default Consultation Mode</label>
+                <select id="defaultModeSelect" class="form-control">
+                  <option value="summary_concise">⚡ Quick Summary (3-4 sentences)</option>
+                  <option value="summary_bullets">📌 Key Takeaways (Structured bullets)</option>
+                  <option value="consultation_deep">🔍 Deep-Dive Consultation (Full analysis)</option>
+                  <option value="action_items">✅ Action Items & Checklist</option>
+                  <option value="critical_review">⚖️ Critical Review & Evaluation</option>
+                </select>
+                <div class="form-hint">Default mode when clicking the extension icon or context menu.</div>
+              </div>
+
+              <div class="form-group">
+                <label for="temperatureRange" class="form-label">
+                  Temperature: <span id="tempValueLabel" class="temp-val">0.2</span>
+                  <span class="label-badge">Analytical Precision</span>
+                </label>
+                <input 
+                  type="range" 
+                  id="temperatureRange" 
+                  min="0.0" 
+                  max="1.0" 
+                  step="0.05" 
+                  value="0.2" 
+                  class="form-range" 
+                />
+                <div class="form-hint">Lower (0.1 - 0.3) is more factual and concise. Higher (0.7+) is more creative.</div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="customSystemPrompt" class="form-label">Custom AI Persona & Consultation Prompt (Optional)</label>
+              <textarea 
+                id="customSystemPrompt" 
+                class="form-control form-textarea" 
+                rows="3" 
+                placeholder="Leave blank for default ClarityAI executive consultant persona..."
+              ></textarea>
+              <div class="form-hint">Optional custom instructions injected as the system prompt for all providers.</div>
+            </div>
+
+            <div class="actions-row">
+              <button id="savePreferencesBtn" class="btn btn-primary">
+                <span>Save Preferences</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: 100% Free Keys Quick Guide -->
+        <section id="quick-presets-section" class="settings-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">100% Free AI Keys Quick Guide</h2>
+              <p class="card-subtitle">No credit card required. Free solutions so anyone can use ClarityAI without paying a cent.</p>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="preset-cards-grid">
+              <!-- Preset 1: OpenRouter Free -->
+              <div class="preset-card">
+                <div class="preset-badge free">100% Free Models</div>
+                <h3 class="preset-title">OpenRouter Free Models</h3>
+                <p class="preset-desc">Provides free access to Llama 3.3 70B, DeepSeek R1, Mistral 7B, and Gemini 2.0 without entering payment info.</p>
+                <div class="preset-steps">
+                  <ol>
+                    <li>Visit <a href="https://openrouter.ai/keys" target="_blank" class="accent-link">openrouter.ai/keys</a></li>
+                    <li>Sign in with Google or GitHub</li>
+                    <li>Create an API Key and paste it above</li>
+                    <li>Select free models ending with <code>:free</code></li>
+                  </ol>
+                </div>
+                <button class="btn btn-outline btn-sm quick-select-btn" data-provider="openrouter" data-model="meta-llama/llama-3.3-70b-instruct:free">
+                  Select OpenRouter Free Preset
+                </button>
+              </div>
+
+              <!-- Preset 2: Groq Free -->
+              <div class="preset-card">
+                <div class="preset-badge fast">Lightning Fast</div>
+                <h3 class="preset-title">Groq Free Tier</h3>
+                <p class="preset-desc">Ultra-fast inference speed for Llama 3.3 70B and Mixtral models with a generous free tier.</p>
+                <div class="preset-steps">
+                  <ol>
+                    <li>Visit <a href="https://console.groq.com/keys" target="_blank" class="accent-link">console.groq.com/keys</a></li>
+                    <li>Log in and create an API Key</li>
+                    <li>Copy key (starts with <code>gsk_</code>) and paste above</li>
+                  </ol>
+                </div>
+                <button class="btn btn-outline btn-sm quick-select-btn" data-provider="groq" data-model="llama-3.3-70b-versatile">
+                  Select Groq Preset
+                </button>
+              </div>
+
+              <!-- Preset 3: Google Gemini -->
+              <div class="preset-card">
+                <div class="preset-badge gemini">Official Free Tier</div>
+                <h3 class="preset-title">Google AI Studio</h3>
+                <p class="preset-desc">Official Google API for Gemini 2.5 Flash, 2.0 Flash, and 1.5 Pro with free rate-limited requests.</p>
+                <div class="preset-steps">
+                  <ol>
+                    <li>Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" class="accent-link">aistudio.google.com/app/apikey</a></li>
+                    <li>Click "Create API Key"</li>
+                    <li>Copy key (starts with <code>AIzaSy...</code>) and paste above</li>
+                  </ol>
+                </div>
+                <button class="btn btn-outline btn-sm quick-select-btn" data-provider="gemini" data-model="gemini-2.5-flash">
+                  Select Gemini Preset
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

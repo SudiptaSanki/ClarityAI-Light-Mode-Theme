@@ -1,37 +1,146 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ClarityAI</title>
+    <title>ClarityAI - Light Mode</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="container">
-      <div class="header">
-        <h1 id="title">ClarityAI</h1>
-      </div>
-      <div class="controls">
-        <select id="summaryStyle" class="summary-style-select">
-          <option value="short">Short Summary</option>
-          <option value="bullets">Bullet Points</option>
-          <option value="detailed">Detailed Summary</option>
-        </select>
-        <button id="summarize" class="btn primary">Summarize</button>
-      </div>
-      <div class="button-group">
-        <button id="extractText" class="btn">Extract Text</button>
-        <button id="testApi" class="btn">Test API</button>
-      </div>
-      <pre id="output" class="output">No summary yet.</pre>
-      <div class="button-group">
-        <button id="copySummary" class="btn">Copy Summary</button>
-      </div>
-      <div class="links">
-        <a href="#" id="openOptions">Settings</a>
-      </div>
-    </div>
-    <script src="popup.js"></script>
-  </body>
-  </html>
+    <div class="app-container">
+      <!-- App Header -->
+      <header class="app-header">
+        <div class="brand">
+          <img src="../SmartSummarizer Logo with Paper and Digital Interface.png" alt="ClarityAI" class="brand-logo" />
+          <div>
+            <div class="brand-title">ClarityAI <span class="badge-version">v0.2</span></div>
+            <div class="brand-subtitle">Universal AI Web Consultation</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="activeModelBadge" class="model-badge" title="Click to change model or provider">
+            <span class="status-dot"></span>
+            <span id="badgeProviderName">Gemini</span>
+          </button>
+          <button id="openSettingsBtn" class="icon-btn" title="Open Settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
 
+      <!-- Quick Setup Banner (Shown if no API key configured) -->
+      <div id="setupBanner" class="setup-banner hidden">
+        <div class="setup-banner-header">
+          <span class="setup-banner-icon">⚡</span>
+          <div>
+            <strong>Setup Your AI Provider Key</strong>
+            <p>Use any free or paid key (Google Gemini, Groq, OpenRouter, etc.).</p>
+          </div>
+        </div>
+        <div class="quick-key-form">
+          <div class="quick-row">
+            <select id="quickProviderSelect" class="form-select"></select>
+            <input type="password" id="quickApiKeyInput" placeholder="Paste your API key here..." class="form-input" />
+          </div>
+          <div class="quick-row">
+            <input type="text" id="quickModelInput" placeholder="Model name (e.g. gemini-2.5-flash)" class="form-input" />
+            <button id="quickSaveKeyBtn" class="btn btn-primary btn-sm">Save & Activate</button>
+          </div>
+          <div class="quick-links">
+            <a href="#" id="quickGetKeyLink" target="_blank" class="text-link">🔑 Get Free Key for selected provider &rarr;</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Controls -->
+      <div class="control-section">
+        <label class="control-label" for="consultationMode">Consultation Mode</label>
+        <div class="mode-select-wrapper">
+          <select id="consultationMode" class="form-select">
+            <option value="summary_concise">⚡ Quick Summary (3-4 sentences)</option>
+            <option value="summary_bullets">📌 Key Takeaways (Bullet highlights)</option>
+            <option value="consultation_deep">🔍 Deep-Dive Consultation (Full analysis)</option>
+            <option value="action_items">✅ Action Items & Checklist</option>
+            <option value="critical_review">⚖️ Critical Review & Assessment</option>
+          </select>
+        </div>
+
+        <!-- Custom Question Consultation Bar -->
+        <div class="custom-query-wrapper">
+          <input 
+            type="text" 
+            id="customQuestionInput" 
+            class="form-input" 
+            placeholder="Ask a specific question about this page (optional)..." 
+          />
+        </div>
+
+        <div class="action-buttons">
+          <button id="runConsultationBtn" class="btn btn-primary btn-block">
+            <span id="btnIcon">✨</span>
+            <span id="btnText">Analyze Page</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metadata & Status Bar -->
+      <div id="metaBar" class="meta-bar hidden">
+        <div class="meta-item" id="metaTitle"></div>
+        <div class="meta-item-badge" id="metaModel"></div>
+      </div>
+
+      <!-- Output Container -->
+      <div class="output-wrapper">
+        <div class="output-header">
+          <span class="output-title">Consultation Result</span>
+          <div class="output-tools">
+            <button id="copyBtn" class="btn-tool" title="Copy Consultation to Clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copy</span>
+            </button>
+            <button id="exportPdfBtn" class="btn-tool" title="Export as PDF / Print">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <span>Export PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="outputContent" class="output-card">
+          <div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <div class="empty-title">Ready for Consultation</div>
+            <div class="empty-desc">Choose a mode above and click "Analyze Page" to consult on the active webpage. Highlight text to consult on a specific section.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Status & Tools -->
+      <footer class="app-footer">
+        <div class="footer-links">
+          <button id="extractPreviewBtn" class="link-btn">Preview Raw Text</button>
+          <span>&bull;</span>
+          <button id="testApiBtn" class="link-btn">Test Connection</button>
+          <span>&bull;</span>
+          <a href="#" id="openOptionsPageLink" class="link-btn">Full Settings</a>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Hidden Raw Text Container for Copying -->
+    <textarea id="rawTextBuffer" style="display: none;"></textarea>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
