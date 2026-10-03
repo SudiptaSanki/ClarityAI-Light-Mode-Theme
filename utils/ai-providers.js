@@ -712,6 +712,68 @@ export function getModelDisplayName(providerId = "gemini", modelId = "") {
 }
 
 /**
+ * Universal, Provider-Agnostic Active Configuration & Dynamic Phrasing Engine
+ * Centralizes provider and model information so UI elements derive their labels
+ * dynamically (e.g. `Ask ${activeProvider.name}`, `${activeProvider.name} is summarizing...`)
+ * without scattering hardcoded provider-specific strings.
+ *
+ * @param {string} providerId - e.g. "gemini", "grok", "openai", "anthropic", "deepseek", "zhipu", "groq", or any future provider
+ * @param {string} modelId - e.g. "gemini-flash-latest", "llama-3.3-70b-versatile", etc.
+ * @returns {Object} activeProvider state object
+ */
+export function getActiveProvider(providerId = "gemini", modelId = "") {
+  const providerDef = PROVIDERS[providerId] || {
+    id: providerId || "custom",
+    name: providerId ? (providerId.charAt(0).toUpperCase() + providerId.slice(1)) : "AI",
+    defaultModel: modelId || "default"
+  };
+
+  const model = modelId || providerDef.defaultModel || "";
+
+  // Derive a user-friendly, concise provider display name
+  let name = providerDef.displayName || providerDef.name;
+  if (providerDef.id === "openai" || name.toLowerCase().includes("openai") || name.toLowerCase().includes("chatgpt")) {
+    name = "ChatGPT";
+  } else if (providerDef.id === "gemini" || name.toLowerCase().includes("gemini")) {
+    name = "Gemini";
+  } else if (providerDef.id === "grok" || name.toLowerCase().includes("grok")) {
+    name = "Grok";
+  } else if (providerDef.id === "anthropic" || name.toLowerCase().includes("claude")) {
+    name = "Claude";
+  } else if (providerDef.id === "deepseek" || name.toLowerCase().includes("deepseek")) {
+    name = "DeepSeek";
+  } else if (providerDef.id === "zhipu" || name.toLowerCase().includes("glm")) {
+    name = "GLM";
+  } else if (providerDef.id === "mistral" || name.toLowerCase().includes("mistral")) {
+    name = "Mistral";
+  } else if (providerDef.id === "groq" || name.toLowerCase().includes("groq")) {
+    name = "Groq";
+  } else {
+    // Dynamic fallback for any future provider added to PROVIDERS or custom endpoints
+    name = providerDef.name.replace(/^(Google|xAI|Meta|Anthropic)\s+/i, "").split(" ")[0] || "AI";
+  }
+
+  const modelInfo = getModelDisplayName(providerId, model);
+
+  return {
+    id: providerDef.id,
+    name,
+    fullName: providerDef.name,
+    model,
+    modelDisplayName: modelInfo.modelName || model,
+    shortModelName: modelInfo.shortName || model,
+    // Dynamic phrasing helpers conforming to requirements 3, 4, 5:
+    askText: `Ask ${name}`,
+    askPlaceholder: `Ask ${name} for a follow-up question...`,
+    summarizeButtonText: `Summarize with ${name}`,
+    searchButtonText: `Search with ${name}`,
+    summarizingText: `${name} is summarizing...`,
+    searchingText: `${name} is searching...`,
+    analyzingText: `${name} is analyzing the page context...`
+  };
+}
+
+/**
  * Fetches actual active model IDs from the targeted provider API endpoint
  */
 export async function fetchAvailableModels({ provider = "gemini", apiKey = "", customEndpoint = "" }) {

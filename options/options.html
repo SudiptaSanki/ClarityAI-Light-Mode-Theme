@@ -31,6 +31,10 @@
             <span class="nav-icon">🔑</span>
             <span>Free Key Guide</span>
           </a>
+          <a href="#updates-section" class="nav-item" data-section="updates-section">
+            <span class="nav-icon">🔄</span>
+            <span>GitHub Updates</span>
+          </a>
         </nav>
 
         <div class="sidebar-footer">
@@ -266,6 +270,78 @@
                 <button class="btn btn-outline btn-sm quick-select-btn" data-provider="gemini" data-model="gemini-flash-latest">
                   Select Gemini Preset
                 </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: GitHub Updates & Local Synchronization -->
+        <section id="updates-section" class="settings-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">GitHub-Based Update & Version Management</h2>
+              <p class="card-subtitle">Keep your local installation up to date directly from the official GitHub repository.</p>
+            </div>
+            <span id="updateVersionBadge" class="provider-pill">v2.0.0 Installed</span>
+          </div>
+
+          <div class="card-body">
+            <!-- Update Status Card -->
+            <div class="update-dashboard-card">
+              <div class="update-header-row">
+                <div class="update-meta">
+                  <span class="update-icon">📦</span>
+                  <div>
+                    <div class="update-version-label">Current Installed Version: <strong id="currentVersionLabel">2.0.0</strong></div>
+                    <div id="remoteVersionSub" class="update-subtext">Official Repository: <a href="https://github.com/SudiptaSanki/ClarityAI-Light-Mode-Theme" target="_blank" class="accent-link">SudiptaSanki/ClarityAI-Light-Mode-Theme</a></div>
+                  </div>
+                </div>
+                <button type="button" id="checkUpdatesBtn" class="btn btn-primary">
+                  <span id="checkUpdatesIcon">🔄</span>
+                  <span id="checkUpdatesText">Check for Updates</span>
+                </button>
+              </div>
+
+              <!-- Live Status Feedback Message -->
+              <div id="updateFeedbackNotice" class="update-notice-banner hidden">
+                <span id="updateFeedbackIcon">ℹ️</span>
+                <span id="updateFeedbackText">Checking for updates...</span>
+              </div>
+
+              <!-- Details Box when Update is Available -->
+              <div id="updateDetailsBox" class="update-details-box hidden">
+                <div class="update-details-header">
+                  <span class="badge-new">Update Available</span>
+                  <strong id="updateTargetVersion">v2.0.1</strong>
+                  <span id="updateCommitDate" class="update-date-text"></span>
+                </div>
+                <p id="updateReleaseNotes" class="update-notes-text"></p>
+                <div class="update-actions-grid">
+                  <button type="button" id="syncFolderBtn" class="btn btn-primary" title="Select your local project folder to synchronize updated files directly">
+                    <span>⚡ Sync to Local Folder</span>
+                  </button>
+                  <button type="button" id="downloadPackageBtn" class="btn btn-secondary" title="Download latest .zip release package">
+                    <span>📥 Download Package (.zip)</span>
+                  </button>
+                  <a href="https://github.com/SudiptaSanki/ClarityAI-Light-Mode-Theme" target="_blank" class="btn btn-outline">
+                    <span>View Repository ↗</span>
+                  </a>
+                </div>
+                <div id="syncProgressContainer" class="sync-progress-wrap hidden">
+                  <div class="progress-bar-bg">
+                    <div id="syncProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+                  </div>
+                  <span id="syncProgressText" class="progress-text">Updating files...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Safe Update Guarantee Notice -->
+            <div class="info-callout" style="margin-top: 16px;">
+              <span class="callout-icon">🛡️</span>
+              <div>
+                <strong>Safe Update Guarantee</strong>
+                <p>Updating your local installation synchronizes updated extension scripts and stylesheets while strictly preserving your saved API keys, consultation preferences, and local data.</p>
               </div>
             </div>
           </div>

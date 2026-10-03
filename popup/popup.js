@@ -1,4 +1,4 @@
-import { PROVIDERS, AI_PROVIDERS, detectProviderFromKey, analyzeKeyFigure, autoResolveWorkingModel, getModelDisplayName } from "../utils/ai-providers.js";
+import { PROVIDERS, AI_PROVIDERS, detectProviderFromKey, analyzeKeyFigure, autoResolveWorkingModel, getModelDisplayName, getActiveProvider } from "../utils/ai-providers.js";
 import { renderMarkdown } from "../utils/markdown.js";
 import { CONSULTATION_MODES } from "../utils/consultation.js";
 import { exportSummaryToPDF } from "../utils/pdf-export.js";
@@ -67,40 +67,39 @@ function populateQuickProviders() {
   });
 }
 
-// Dynamically updates search placeholder, action buttons, and empty state to reflect active model
+// Dynamically updates search placeholder, action buttons, and empty state to reflect active provider
 function updateDynamicSearchUI(providerId, modelId) {
   currentProvider = providerId || currentProvider;
   currentModel = modelId || currentModel;
-  const engineInfo = getModelDisplayName(currentProvider, currentModel);
+  const active = getActiveProvider(currentProvider, currentModel);
 
   // 1. Update Custom Question / Search Input Placeholder
   if (customQuestionInput) {
-    customQuestionInput.placeholder = `Search page or focus query with ${engineInfo.modelName}...`;
+    customQuestionInput.placeholder = `Search page or focus query with ${active.name}...`;
   }
 
   // 2. Update Run Consultation / Search Button
   const hasQuery = customQuestionInput ? customQuestionInput.value.trim().length > 0 : false;
   if (hasQuery) {
     btnIcon.textContent = "🔍";
-    btnText.textContent = `Search with ${engineInfo.shortName}`;
-    runConsultationBtn.title = `Search active page for "${customQuestionInput.value.trim()}" using ${engineInfo.fullName}`;
+    btnText.textContent = active.searchButtonText;
+    runConsultationBtn.title = `Search active page for "${customQuestionInput.value.trim()}" using ${active.fullName}`;
   } else {
     btnIcon.textContent = "✨";
-    btnText.textContent = `Summarize with ${engineInfo.shortName}`;
-    runConsultationBtn.title = `Generate summary using ${engineInfo.fullName}`;
+    btnText.textContent = active.summarizeButtonText;
+    runConsultationBtn.title = `Generate summary using ${active.fullName}`;
   }
 
-  // 3. Dynamic Q&A Placeholder and Model-Specific Ask Button
-  const askLabels = getDynamicAskLabels(currentProvider, currentModel);
+  // 3. Dynamic Q&A Placeholder and Model-Specific Ask Button (Requirement 3: Ask Grok, Ask Gemini, Ask ChatGPT, Ask Claude, etc.)
   if (qaInput) {
-    qaInput.placeholder = askLabels.placeholder;
+    qaInput.placeholder = active.askPlaceholder;
   }
   const qaBtnText = document.getElementById("qaBtnText");
   if (qaBtnText) {
-    qaBtnText.textContent = askLabels.btnLabel;
+    qaBtnText.textContent = active.askText;
   }
   if (qaSendBtn) {
-    qaSendBtn.title = askLabels.fullName ? `Ask ${askLabels.fullName} for a follow-up question` : "Ask for a follow-up question";
+    qaSendBtn.title = `Ask ${active.name} for a follow-up question`;
   }
 
   // 4. Update Empty State if currently empty/visible
@@ -108,52 +107,12 @@ function updateDynamicSearchUI(providerId, modelId) {
     const emptyDesc = outputContent.querySelector(".empty-desc");
     const emptyTitle = outputContent.querySelector(".empty-title");
     if (emptyTitle) {
-      emptyTitle.textContent = `Ready to Consult with ${engineInfo.modelName}`;
+      emptyTitle.textContent = `Ready to Consult with ${active.name}`;
     }
     if (emptyDesc) {
-      emptyDesc.innerHTML = `Active Model: <strong style="color: var(--accent-primary);">${engineInfo.fullName}</strong>`;
+      emptyDesc.innerHTML = `Active Model: <strong style="color: var(--accent-primary);">${active.modelDisplayName} (${active.name})</strong>`;
     }
   }
-}
-
-// Helper to formulate smart model-aware follow-up question labels
-function getDynamicAskLabels(providerId, modelId) {
-  const engineInfo = getModelDisplayName(providerId, modelId);
-  const pName = engineInfo.providerName || "";
-  const sName = engineInfo.shortName || "";
-  
-  let askTarget = "";
-  if (pName && sName) {
-    if (pName.toLowerCase().includes("gemini") && sName.toLowerCase().includes("flash")) {
-      askTarget = "Gemini Flash";
-    } else if (pName.toLowerCase().includes("grok") || sName.toLowerCase().includes("grok")) {
-      askTarget = "Grok";
-    } else if (pName.toLowerCase().includes("groq")) {
-      askTarget = sName ? `Groq (${sName})` : "Groq";
-    } else if (sName.toLowerCase().startsWith(pName.toLowerCase())) {
-      askTarget = sName;
-    } else {
-      askTarget = `${pName} ${sName}`.trim();
-    }
-  } else if (sName) {
-    askTarget = sName;
-  } else if (pName && pName !== "AI") {
-    askTarget = pName;
-  }
-
-  const placeholder = askTarget 
-    ? `Ask ${askTarget} for a follow-up question...` 
-    : "Ask for a follow-up question...";
-
-  let btnLabel = "Ask";
-  if (askTarget) {
-    if (askTarget === "Gemini Flash") btnLabel = "Ask Flash";
-    else if (askTarget === "Grok") btnLabel = "Ask Grok";
-    else if (sName && sName.length <= 14) btnLabel = `Ask ${sName}`;
-    else if (pName && pName !== "AI") btnLabel = `Ask ${pName}`;
-  }
-
-  return { placeholder, btnLabel, fullName: engineInfo.fullName };
 }
 
 // Refresh state from chrome.storage
@@ -215,7 +174,8 @@ async function refreshState() {
       setLoadingState(false);
     } else {
       const isSearch = store.isSearch || (customQuestionInput && customQuestionInput.value.trim().length > 0);
-      const actionText = isSearch ? `Searching with ${displayInfo.modelName}...` : `Summarizing with ${displayInfo.modelName}...`;
+      const active = getActiveProvider(currentProvider, currentModel);
+      const actionText = isSearch ? active.searchingText : active.summarizingText;
       setLoadingState(true, actionText);
     }
   } else if (store.lastSummary) {
@@ -403,13 +363,20 @@ function setupEventListeners() {
   quickTestBtn.addEventListener("click", handleQuickTest);
   testApiBtn.addEventListener("click", handleQuickTest);
 
-  // Open Full Settings
+  // Open Full Settings & Check Updates
   activeModelBadge.addEventListener("click", openSettingsPage);
   openSettingsBtn.addEventListener("click", openSettingsPage);
   openOptionsPageLink.addEventListener("click", (e) => {
     e.preventDefault();
     openSettingsPage();
   });
+  const checkUpdatesLink = document.getElementById("checkUpdatesLink");
+  if (checkUpdatesLink) {
+    checkUpdatesLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL("options/options.html#updates-section") });
+    });
+  }
 
   // Storage listener for background updates
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -483,11 +450,11 @@ async function executeConsultation() {
 
   const mode = consultationMode.value;
   const customQuestion = customQuestionInput.value.trim();
-  const engineInfo = getModelDisplayName(provider, currentModel);
+  const active = getActiveProvider(provider, currentModel);
 
   const loadingMsg = customQuestion
-    ? `Searching page with ${engineInfo.modelName}...`
-    : `Summarizing with ${engineInfo.modelName}...`;
+    ? active.searchingText
+    : active.summarizingText;
 
   setLoadingState(true, loadingMsg);
 
@@ -557,18 +524,16 @@ async function handleFollowUpQuestion() {
   const question = qaInput.value.trim();
   if (!question) return;
 
-  const engineInfo = getModelDisplayName(currentProvider, currentModel);
-  const askLabels = getDynamicAskLabels(currentProvider, currentModel);
+  const active = getActiveProvider(currentProvider, currentModel);
   const qaBtnIcon = document.getElementById("qaBtnIcon");
   const qaBtnText = document.getElementById("qaBtnText");
-  const origBtnText = qaBtnText ? qaBtnText.textContent : "Ask";
 
   qaSendBtn.disabled = true;
   if (qaBtnIcon) qaBtnIcon.textContent = "⏳";
   if (qaBtnText) qaBtnText.textContent = "Asking...";
 
   qaAnswer.classList.remove("hidden");
-  qaAnswer.innerHTML = `<span style="color: var(--text-muted);">${engineInfo.modelName || 'AI'} is searching & analyzing the page context...</span>`;
+  qaAnswer.innerHTML = `<span style="color: var(--text-muted);">${active.name} is searching & analyzing the page context...</span>`;
 
   try {
     // If active page text is not cached yet, extract on the fly
@@ -603,32 +568,32 @@ async function handleFollowUpQuestion() {
   } finally {
     qaSendBtn.disabled = false;
     if (qaBtnIcon) qaBtnIcon.textContent = "💬";
-    if (qaBtnText) qaBtnText.textContent = origBtnText;
+    if (qaBtnText) qaBtnText.textContent = active.askText;
   }
 }
 
 // Set Loading state on UI with active model name and search awareness
 function setLoadingState(isLoading, message = "") {
-  const engineInfo = getModelDisplayName(currentProvider, currentModel);
+  const active = getActiveProvider(currentProvider, currentModel);
   const hasQuery = customQuestionInput ? customQuestionInput.value.trim().length > 0 : false;
 
   if (isLoading) {
     runConsultationBtn.disabled = true;
     btnIcon.textContent = "⏳";
     const actionLabel = hasQuery
-      ? `Searching with ${engineInfo.shortName}...`
-      : `Summarizing with ${engineInfo.shortName}...`;
+      ? active.searchingText
+      : active.summarizingText;
     btnText.textContent = actionLabel;
 
     const mainTitle = message || (hasQuery
-      ? `Searching Page with ${engineInfo.modelName}`
-      : `Analyzing Page with ${engineInfo.modelName}`);
+      ? active.searchingText
+      : active.summarizingText);
 
     outputContent.innerHTML = `
       <div class="empty-state loading-pulse">
         <div class="empty-icon">${hasQuery ? "🔍" : "🧠"}</div>
         <div class="empty-title">${escapeHtml(mainTitle)}</div>
-        <div class="empty-desc">Active Model: <strong>${escapeHtml(engineInfo.fullName)}</strong></div>
+        <div class="empty-desc">Active Model: <strong>${escapeHtml(active.fullName)}</strong></div>
       </div>
     `;
     qaSection.classList.add("hidden");

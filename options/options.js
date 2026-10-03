@@ -1,4 +1,5 @@
 import { PROVIDERS, AI_PROVIDERS, detectProviderFromKey, analyzeKeyFigure, probeAndDetectProvider, autoResolveWorkingModel, fetchAvailableModels, testConnection } from "../utils/ai-providers.js";
+import { checkForUpdates, syncLocalDirectory, downloadUpdatePackage, GITHUB_REPO_URL } from "../utils/updater.js";
 
 // DOM Elements
 const providerSelect = document.getElementById("providerSelect");
@@ -45,6 +46,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   populateProviders();
   await loadStoredSettings();
   setupEventListeners();
+  setupSidebarNav();
+  setupUpdateEngine();
 });
 
 // Populate provider dropdown
@@ -699,4 +702,196 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// Sidebar Navigation Active Slider & Section Tracking
+function setupSidebarNav() {
+  const navItems = document.querySelectorAll(".nav-item");
+  navItems.forEach(item => {
+    item.addEventListener("click", () => {
+      navItems.forEach(i => i.classList.remove("active"));
+      item.classList.add("active");
+    });
+  });
+
+  // IntersectionObserver to auto-update active sidebar link as user scrolls
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        navItems.forEach(i => {
+          if (i.getAttribute("data-section") === id || i.getAttribute("href") === `#${id}`) {
+            i.classList.add("active");
+          } else {
+            i.classList.remove("active");
+          }
+        });
+      }
+    });
+  }, { threshold: 0.35 });
+
+  document.querySelectorAll("section.settings-card").forEach(section => {
+    observer.observe(section);
+  });
+}
+
+// GitHub-Based Update & Local Synchronization Engine
+function setupUpdateEngine() {
+  const currentVersionLabel = document.getElementById("currentVersionLabel");
+  const updateVersionBadge = document.getElementById("updateVersionBadge");
+  const checkUpdatesBtn = document.getElementById("checkUpdatesBtn");
+  const checkUpdatesIcon = document.getElementById("checkUpdatesIcon");
+  const checkUpdatesText = document.getElementById("checkUpdatesText");
+  const updateFeedbackNotice = document.getElementById("updateFeedbackNotice");
+  const updateFeedbackIcon = document.getElementById("updateFeedbackIcon");
+  const updateFeedbackText = document.getElementById("updateFeedbackText");
+  const updateDetailsBox = document.getElementById("updateDetailsBox");
+  const updateTargetVersion = document.getElementById("updateTargetVersion");
+  const updateReleaseNotes = document.getElementById("updateReleaseNotes");
+  const updateCommitDate = document.getElementById("updateCommitDate");
+  const syncFolderBtn = document.getElementById("syncFolderBtn");
+  const downloadPackageBtn = document.getElementById("downloadPackageBtn");
+  const syncProgressContainer = document.getElementById("syncProgressContainer");
+  const syncProgressBar = document.getElementById("syncProgressBar");
+  const syncProgressText = document.getElementById("syncProgressText");
+
+  // Display current local manifest version
+  const manifest = chrome.runtime.getManifest();
+  const installedVer = manifest.version || "2.0.0";
+  if (currentVersionLabel) currentVersionLabel.textContent = installedVer;
+  if (updateVersionBadge) updateVersionBadge.textContent = `v${installedVer} Installed`;
+
+  // 1. Check for Updates
+  checkUpdatesBtn?.addEventListener("click", async () => {
+    checkUpdatesBtn.disabled = true;
+    checkUpdatesIcon.textContent = "⏳";
+    checkUpdatesText.textContent = "Checking...";
+
+    updateFeedbackNotice.className = "update-notice-banner info";
+    updateFeedbackNotice.classList.remove("hidden");
+    updateFeedbackIcon.textContent = "🔍";
+    updateFeedbackText.textContent = "Checking for updates...";
+
+    try {
+      const result = await checkForUpdates((statusMsg) => {
+        updateFeedbackText.textContent = statusMsg;
+      });
+
+      if (result.success && result.updateAvailable) {
+        updateFeedbackNotice.className = "update-notice-banner warning";
+        updateFeedbackIcon.textContent = "✨";
+        updateFeedbackText.textContent = `Update available.`;
+        updateDetailsBox.classList.remove("hidden");
+        updateTargetVersion.textContent = `Version ${result.remoteVersion}`;
+        updateReleaseNotes.textContent = result.releaseNotes || result.commitMessage || "New updates available on main branch.";
+        updateCommitDate.textContent = result.publishedAt ? `Released on ${result.publishedAt}` : "";
+      } else if (result.success) {
+        updateFeedbackNotice.className = "update-notice-banner success";
+        updateFeedbackIcon.textContent = "✅";
+        updateFeedbackText.textContent = "Already up to date.";
+        updateDetailsBox.classList.add("hidden");
+      } else {
+        updateFeedbackNotice.className = "update-notice-banner danger";
+        updateFeedbackIcon.textContent = "❌";
+        updateFeedbackText.textContent = `Update failed. (${result.error || 'Network error'})`;
+      }
+    } catch (err) {
+      updateFeedbackNotice.className = "update-notice-banner danger";
+      updateFeedbackIcon.textContent = "❌";
+      updateFeedbackText.textContent = `Update failed. (${err.message})`;
+    } finally {
+      checkUpdatesBtn.disabled = false;
+      checkUpdatesIcon.textContent = "🔄";
+      checkUpdatesText.textContent = "Check for Updates";
+    }
+  });
+
+  // 2. Direct Local Directory Sync (File System Access API)
+  syncFolderBtn?.addEventListener("click", async () => {
+    if (!window.showDirectoryPicker) {
+      alert("Direct folder sync requires a Chromium browser (Chrome or Edge). Please use 'Download Package (.zip)' to update files.");
+      return;
+    }
+
+    try {
+      syncFolderBtn.disabled = true;
+      syncProgressContainer.classList.remove("hidden");
+      syncProgressBar.style.width = "5%";
+      syncProgressText.textContent = "Selecting local project folder...";
+
+      // Prompt user to select their extension folder
+      const dirHandle = await window.showDirectoryPicker({
+        id: "clarityai_project_root",
+        mode: "readwrite"
+      });
+
+      updateFeedbackNotice.className = "update-notice-banner info";
+      updateFeedbackIcon.textContent = "⏳";
+      updateFeedbackText.textContent = "Downloading update...";
+
+      await syncLocalDirectory(dirHandle, (status, data) => {
+        if (status === "Updating files..." && data?.total) {
+          const pct = Math.round((data.current / data.total) * 100);
+          syncProgressBar.style.width = `${pct}%`;
+          syncProgressText.textContent = `Updating files... (${data.current}/${data.total}: ${data.filePath})`;
+        } else if (status === "Update completed successfully.") {
+          syncProgressBar.style.width = "100%";
+          syncProgressText.textContent = `Update completed successfully. (${data?.updatedFilesCount || 0} files updated)`;
+          updateFeedbackNotice.className = "update-notice-banner success";
+          updateFeedbackIcon.textContent = "✅";
+          updateFeedbackText.textContent = "Update completed successfully.";
+
+          setTimeout(() => {
+            if (confirm("Update completed successfully! Would you like to reload the extension now?")) {
+              chrome.runtime.reload();
+            }
+          }, 350);
+        } else if (status === "Update failed.") {
+          updateFeedbackNotice.className = "update-notice-banner danger";
+          updateFeedbackIcon.textContent = "❌";
+          updateFeedbackText.textContent = `Update failed. (${data?.error || ''})`;
+        } else {
+          updateFeedbackText.textContent = status;
+        }
+      });
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        updateFeedbackNotice.className = "update-notice-banner danger";
+        updateFeedbackIcon.textContent = "❌";
+        updateFeedbackText.textContent = `Update failed. (${err.message})`;
+      }
+    } finally {
+      syncFolderBtn.disabled = false;
+    }
+  });
+
+  // 3. Download Package (.zip) button
+  downloadPackageBtn?.addEventListener("click", async () => {
+    downloadPackageBtn.disabled = true;
+    updateFeedbackNotice.className = "update-notice-banner info";
+    updateFeedbackIcon.textContent = "📥";
+    updateFeedbackText.textContent = "Downloading update...";
+
+    try {
+      await downloadUpdatePackage((status, data) => {
+        if (status === "Update completed successfully.") {
+          updateFeedbackNotice.className = "update-notice-banner success";
+          updateFeedbackIcon.textContent = "✅";
+          updateFeedbackText.textContent = "Update completed successfully. Extract the downloaded ZIP to update your files.";
+        } else if (status === "Update failed.") {
+          updateFeedbackNotice.className = "update-notice-banner danger";
+          updateFeedbackIcon.textContent = "❌";
+          updateFeedbackText.textContent = `Update failed. (${data?.error || ''})`;
+        } else {
+          updateFeedbackText.textContent = status;
+        }
+      });
+    } catch (err) {
+      updateFeedbackNotice.className = "update-notice-banner danger";
+      updateFeedbackIcon.textContent = "❌";
+      updateFeedbackText.textContent = `Update failed. (${err.message})`;
+    } finally {
+      downloadPackageBtn.disabled = false;
+    }
+  });
 }
