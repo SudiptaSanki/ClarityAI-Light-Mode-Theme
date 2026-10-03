@@ -55,8 +55,8 @@ async function initializeSettings() {
   if (!data.provider) updates.provider = "gemini";
 
   const currentModels = data.selectedModels || data.models || {};
-  // Migrate legacy Gemini models to latest stable
-  if (!currentModels.gemini || currentModels.gemini === "gemini-2.5-flash" || currentModels.gemini === "gemini-1.5-flash") {
+  // Migrate legacy/retired Gemini models to latest stable
+  if (!currentModels.gemini || currentModels.gemini === "gemini-2.5-flash" || currentModels.gemini === "gemini-2.0-flash" || currentModels.gemini === "gemini-1.5-flash" || currentModels.gemini === "gemini-2.5-pro" || currentModels.gemini === "gemini-pro-latest") {
     currentModels.gemini = "gemini-flash-latest";
   }
   if (!currentModels.openrouter) currentModels.openrouter = "meta-llama/llama-3.3-70b-instruct:free";
