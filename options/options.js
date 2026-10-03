@@ -227,6 +227,24 @@ function renderGuideBox(provider) {
         </ol>
       `;
       break;
+    case "grok":
+      guideHtml = `
+        <ol>
+          <li>Visit <a href="https://console.x.ai/" target="_blank" class="accent-link">xAI Console (console.x.ai)</a>.</li>
+          <li>Generate an API key (begins with <code>xai-</code>).</li>
+          <li>Supports Grok 2, Grok 2 Mini, and Grok Beta models.</li>
+        </ol>
+      `;
+      break;
+    case "zhipu":
+      guideHtml = `
+        <ol>
+          <li>Visit <a href="https://open.bigmodel.cn/" target="_blank" class="accent-link">Zhipu BigModel Platform</a>.</li>
+          <li>Create an API key and paste it above.</li>
+          <li>Supports free GLM-4-Flash and flagship GLM-4 models.</li>
+        </ol>
+      `;
+      break;
     case "custom":
       guideHtml = `
         <p>Run local models via <strong>Ollama</strong> or <strong>LM Studio</strong>:</p>
@@ -280,13 +298,7 @@ function setupEventListeners() {
 
     if (val.length >= 15) {
       optionsKeyDebounceTimer = setTimeout(async () => {
-        const detected = (figure.confidence === "high" ? fastDetected : null) || (await probeAndDetectProvider(val)) || currentProvider;
-        if (detected && detected !== currentProvider) {
-          saveCurrentInputsToMemory();
-          currentProvider = detected;
-          providerSelect.value = detected;
-          updateProviderView(detected);
-        }
+        // Strict Provider Namespacing: Always validate against the selected provider
         await triggerKeyAutoProbe(val, currentProvider);
       }, 550);
     }
@@ -299,7 +311,7 @@ function setupEventListeners() {
 
     modelAutoFixNotice.classList.remove("hidden");
     modelAutoFixNotice.className = "notice-box";
-    modelAutoFixNotice.innerHTML = `<span>⏳ Checking available models for ${PROVIDERS[provider]?.name}...</span>`;
+    modelAutoFixNotice.innerHTML = `<span>⏳ Verifying ${PROVIDERS[provider]?.name} credential & discovering models...</span>`;
 
     try {
       const result = await autoResolveWorkingModel({
@@ -317,7 +329,7 @@ function setupEventListeners() {
         storedSelectedModels[provider] = result.resolvedModel;
         storedApiKeys[provider] = apiKey;
 
-        // Auto-persist healed model to storage
+        // Auto-persist verified model to storage
         chrome.storage.local.set({
           provider,
           apiKeys: storedApiKeys,
@@ -327,28 +339,58 @@ function setupEventListeners() {
 
         const latencyBadge = result.latency ? ` <span style="font-size: 11px; opacity: 0.85;">(${result.latency}ms)</span>` : "";
         let workingModelsHtml = "";
-        if (result.workingModels && result.workingModels.length > 0) {
-          workingModelsHtml = `<div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">Operational Models: <strong>${result.workingModels.slice(0, 6).join(", ")}</strong>${result.workingModels.length > 6 ? '...' : ''}</div>`;
+        if (result.availableModels && result.availableModels.length > 0) {
+          const sample = result.availableModels.slice(0, 5).map(m => m.id).join(", ");
+          workingModelsHtml = `<div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">Available Models: <strong>${sample}</strong>${result.availableModels.length > 5 ? '...' : ''}</div>`;
         }
 
-        modelAutoFixNotice.className = "notice-box success";
-        modelAutoFixNotice.innerHTML = `✅ <strong>Model Verified:</strong> ${result.message}${latencyBadge}${workingModelsHtml}`;
+        if (result.autoFixed) {
+          modelAutoFixNotice.className = "notice-box warning";
+          modelAutoFixNotice.innerHTML = `ℹ️ <strong>Model Auto-Selected:</strong> ${escapeHtml(result.message)}${latencyBadge}${workingModelsHtml}`;
+        } else {
+          modelAutoFixNotice.className = "notice-box success";
+          modelAutoFixNotice.innerHTML = `✅ <strong>Key & Model Verified:</strong> ${escapeHtml(result.message)}${latencyBadge}${workingModelsHtml}`;
+        }
       } else {
         if (result.resolvedModel) {
           modelInput.value = result.resolvedModel;
           storedSelectedModels[provider] = result.resolvedModel;
         }
-        modelAutoFixNotice.className = "notice-box warning";
-        modelAutoFixNotice.innerHTML = `
-          <strong>⚠️ Model Notice:</strong> ${escapeHtml(result.error || 'Could not verify model.')}
-          <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify key limits, or manually enter your model name above.')}</div>
-        `;
+
+        if (result.credentialStatus === "mismatched") {
+          modelAutoFixNotice.className = "notice-box warning";
+          modelAutoFixNotice.innerHTML = `
+            <strong>⚠️ Provider Mismatch:</strong> ${escapeHtml(result.error)}
+            <div style="margin-top: 6px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="noticeSwitchBtn">Switch to ${escapeHtml(result.mismatchedProviderName)}</button>
+            </div>
+          `;
+          document.getElementById("noticeSwitchBtn")?.addEventListener("click", () => {
+            saveCurrentInputsToMemory();
+            currentProvider = result.mismatchedProvider;
+            providerSelect.value = currentProvider;
+            updateProviderView(currentProvider);
+            triggerKeyAutoProbe(apiKey, currentProvider);
+          });
+        } else if (result.level === 1) {
+          modelAutoFixNotice.className = "notice-box warning";
+          modelAutoFixNotice.innerHTML = `
+            <strong>⚠️ Invalid Key Format:</strong> ${escapeHtml(result.error || 'Syntax check failed.')}
+            <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify key format.')}</div>
+          `;
+        } else {
+          modelAutoFixNotice.className = "notice-box danger";
+          modelAutoFixNotice.innerHTML = `
+            <strong>❌ Authentication Failed:</strong> ${escapeHtml(result.error || 'Could not verify credential.')}
+            <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify your API key and quotas.')}</div>
+          `;
+        }
       }
     } catch (err) {
       modelAutoFixNotice.className = "notice-box danger";
       modelAutoFixNotice.innerHTML = `
         <strong>⚠️ Model Detection:</strong> ${escapeHtml(err.message)}
-        <div style="margin-top: 4px; font-size: 11.5px;">You can manually type your model name in the field above (no coding needed) and click Test Connection.</div>
+        <div style="margin-top: 4px; font-size: 11.5px;">You can manually type your model name in the field above and click Test Connection.</div>
       `;
     }
   }
@@ -367,7 +409,7 @@ function setupEventListeners() {
     }
 
     autoResolveModelBtn.disabled = true;
-    autoResolveModelBtn.textContent = "⏳ Resolving Models...";
+    autoResolveModelBtn.textContent = "⏳ Discovering Models...";
     modelAutoFixNotice.classList.add("hidden");
 
     try {
@@ -387,13 +429,19 @@ function setupEventListeners() {
 
         const latencyBadge = result.latency ? ` <span style="font-size: 11px; opacity: 0.85;">(${result.latency}ms)</span>` : "";
         let workingModelsHtml = "";
-        if (result.workingModels && result.workingModels.length > 0) {
-          workingModelsHtml = `<div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">Operational Models: <strong>${result.workingModels.slice(0, 6).join(", ")}</strong>${result.workingModels.length > 6 ? '...' : ''}</div>`;
+        if (result.availableModels && result.availableModels.length > 0) {
+          const sample = result.availableModels.slice(0, 5).map(m => m.id).join(", ");
+          workingModelsHtml = `<div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">Available Models: <strong>${sample}</strong>${result.availableModels.length > 5 ? '...' : ''}</div>`;
         }
 
         modelAutoFixNotice.classList.remove("hidden");
-        modelAutoFixNotice.className = "notice-box success";
-        modelAutoFixNotice.innerHTML = `✅ <strong>Model Verified:</strong> ${result.message}${latencyBadge}${workingModelsHtml}`;
+        if (result.autoFixed) {
+          modelAutoFixNotice.className = "notice-box warning";
+          modelAutoFixNotice.innerHTML = `ℹ️ <strong>Model Auto-Selected:</strong> ${escapeHtml(result.message)}${latencyBadge}${workingModelsHtml}`;
+        } else {
+          modelAutoFixNotice.className = "notice-box success";
+          modelAutoFixNotice.innerHTML = `✅ <strong>Key & Model Verified:</strong> ${escapeHtml(result.message)}${latencyBadge}${workingModelsHtml}`;
+        }
         showNotification(`✅ ${result.message}`, "success");
       } else {
         if (result.resolvedModel) {
@@ -401,11 +449,35 @@ function setupEventListeners() {
           storedSelectedModels[currentProvider] = result.resolvedModel;
         }
         modelAutoFixNotice.classList.remove("hidden");
-        modelAutoFixNotice.className = "notice-box warning";
-        modelAutoFixNotice.innerHTML = `
-          <strong>⚠️ Model Resolution Issue:</strong> ${escapeHtml(result.error)}
-          <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify model name or key limits.')}</div>
-        `;
+
+        if (result.credentialStatus === "mismatched") {
+          modelAutoFixNotice.className = "notice-box warning";
+          modelAutoFixNotice.innerHTML = `
+            <strong>⚠️ Provider Mismatch:</strong> ${escapeHtml(result.error)}
+            <div style="margin-top: 6px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnNoticeSwitch">Switch to ${escapeHtml(result.mismatchedProviderName)}</button>
+            </div>
+          `;
+          document.getElementById("btnNoticeSwitch")?.addEventListener("click", () => {
+            saveCurrentInputsToMemory();
+            currentProvider = result.mismatchedProvider;
+            providerSelect.value = currentProvider;
+            updateProviderView(currentProvider);
+            triggerKeyAutoProbe(apiKey, currentProvider);
+          });
+        } else if (result.level === 1) {
+          modelAutoFixNotice.className = "notice-box warning";
+          modelAutoFixNotice.innerHTML = `
+            <strong>⚠️ Invalid Key Format:</strong> ${escapeHtml(result.error)}
+            <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify key format.')}</div>
+          `;
+        } else {
+          modelAutoFixNotice.className = "notice-box danger";
+          modelAutoFixNotice.innerHTML = `
+            <strong>❌ Authentication Failed:</strong> ${escapeHtml(result.error)}
+            <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify key limits, or manually enter your model name above.')}</div>
+          `;
+        }
         showNotification(`⚠️ ${result.error}`, "danger");
       }
     } catch (err) {

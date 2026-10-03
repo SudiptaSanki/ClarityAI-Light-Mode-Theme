@@ -65,6 +65,8 @@ async function initializeSettings() {
   if (!currentModels.anthropic) currentModels.anthropic = "claude-3-5-haiku-latest";
   if (!currentModels.deepseek) currentModels.deepseek = "deepseek-chat";
   if (!currentModels.mistral) currentModels.mistral = "mistral-small-latest";
+  if (!currentModels.grok) currentModels.grok = "grok-2-latest";
+  if (!currentModels.zhipu) currentModels.zhipu = "glm-4-flash";
   if (!currentModels.custom) currentModels.custom = "llama3";
 
   updates.selectedModels = currentModels;

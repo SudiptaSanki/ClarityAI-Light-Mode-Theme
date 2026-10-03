@@ -23,24 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * **DeepSeek**: `sk-` (30–46 characters)
   * **Custom / Local**: `http://`, `https://`, `localhost`, `127.0.0.1`
 * Automated provider detection and 1-click auto-switching on paste.
+* Added support for **xAI Grok** (`xai-...`) and **Zhipu GLM** (`glm-...` / `id.secret`).
 
-#### 2. Active Gemini Multi-Model Probing Matrix (`probeGeminiModelMatrix`)
-* Solves version mismatches and restricted key permissions.
-* Concurrently sends lightweight 1-token diagnostic requests (`maxOutputTokens: 1`) to candidate models:
-  * `gemini-3.5-flash`
-  * `gemini-flash-latest`
-  * `gemini-3.8-flash`
-  * `gemini-2.5-flash`
-  * `gemini-2.0-flash`
-  * `gemini-flash-lite-latest`
-  * `gemini-pro-latest`
-  * `gemini-2.5-pro`
-  * `gemini-1.5-flash`
-* Measures operational roundtrip latency for each model.
-* Auto-selects the fastest verified operational model and auto-persists to storage.
-
-#### 3. Parallel Cross-Provider Fallback Probing (`probeAndDetectProvider`)
-* Probes provider `/models` endpoints in parallel using `Promise.any` to auto-resolve keys when pattern recognition is ambiguous.
+#### 2. Provider-Namespaced 3-Level Validation Pipeline
+* **Level 1 — Credential Syntax Validation**: Local syntactic format check against provider expectations (zero network requests, prevents sending keys to mismatched services).
+* **Level 2 — Authentication / Access Discovery**: Single authenticated request to provider's official model listing endpoint (e.g. `GET /v1beta/models`, `GET /v1/models`). Zero billable tokens or prompt generation used during validation.
+* **Level 3 — Model Validation & Smart Fallback**: Normalizes accessible models returned by the provider. If the requested model is unavailable, automatically matches the closest valid model *from that same provider* without requiring manual reconfiguration.
+* Dedicated **Provider Adapters** registry (`PROVIDER_ADAPTERS`) encapsulating endpoints, syntax validators, and priority model fallbacks for all 10 supported providers.
 
 #### 4. Dynamic Search & Consultation Engine UI
 * Search and summarize buttons adapt dynamically based on user input:

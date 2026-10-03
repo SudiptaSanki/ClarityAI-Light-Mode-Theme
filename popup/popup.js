@@ -223,7 +223,7 @@ function setupEventListeners() {
       keyDetectionBadge.style.background = "var(--bg-muted)";
       keyDetectionBadge.style.color = "var(--text-secondary)";
       keyDetectionBadge.style.borderColor = "var(--border-light)";
-      keyDetectionBadge.textContent = `⏳ Analyzing key figure & probing working models...`;
+      keyDetectionBadge.textContent = `⏳ Verifying credential & discovering models...`;
 
       quickKeyTimer = setTimeout(async () => {
         try {
