@@ -144,8 +144,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-// Run consultation with user's saved provider configuration
-async function runConsultation({ text, mode = "summary_concise", customQuestion = "", title = "", url = "" }) {
+// Get currently active AI provider, model, key, and endpoint settings from storage
+async function getActiveAiSettings() {
   const store = await chrome.storage.local.get([
     "provider",
     "apiKeys",
@@ -166,11 +166,26 @@ async function runConsultation({ text, mode = "summary_concise", customQuestion 
   const customEndpoint = customEndpoints[provider] || "";
   const temperature = store.temperature ?? 0.2;
 
+  return {
+    provider,
+    apiKey,
+    model,
+    customEndpoint,
+    temperature,
+    customSystemPrompt: store.customSystemPrompt || ""
+  };
+}
+
+// Run consultation with user's saved provider configuration
+async function runConsultation({ text, mode = "summary_concise", customQuestion = "", title = "", url = "" }) {
+  const activeSettings = await getActiveAiSettings();
+  const { provider, model, apiKey, customEndpoint, temperature, customSystemPrompt: storedCustomPrompt } = activeSettings;
+
   const prompt = buildConsultationPrompt(mode, text, customQuestion, title, url);
   const modeDef = CONSULTATION_MODES[mode];
   const baseSystemPrompt = modeDef?.systemPrompt || "You are ClarityAI, an executive AI consultation assistant. Analyze and summarize web content clearly, accurately, and thoroughly with structured markdown formatting.";
-  const systemPrompt = store.customSystemPrompt && store.customSystemPrompt.trim()
-    ? `${store.customSystemPrompt.trim()}\n\n${baseSystemPrompt}`
+  const systemPrompt = storedCustomPrompt && storedCustomPrompt.trim()
+    ? `${storedCustomPrompt.trim()}\n\n${baseSystemPrompt}`
     : baseSystemPrompt;
 
   const output = await callAiApi({
@@ -222,6 +237,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab?.id) {
           throw new Error("No active browser tab detected.");
+        }
+
+        if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://") || tab.url.startsWith("about:") || tab.url.startsWith("chrome-extension://"))) {
+          const pageName = tab.url.split("/")[2] || "internal page";
+          throw new Error(`Cannot analyze browser internal pages (${pageName}). Please open a standard web page or article to analyze.`);
         }
 
         const [execResult] = await chrome.scripting.executeScript({
@@ -288,24 +308,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           throw new Error("Please enter a question to ask.");
         }
 
-        const store = await chrome.storage.local.get([
-          "provider",
-          "apiKeys",
-          "selectedModels",
-          "models",
-          "customEndpoints",
-          "temperature",
-          "customSystemPrompt"
-        ]);
-
-        const provider = store.provider || "gemini";
-        const apiKeys = store.apiKeys || {};
-        const selectedModels = store.selectedModels || store.models || {};
-        const customEndpoints = store.customEndpoints || {};
-
-        const apiKey = apiKeys[provider] || "";
-        const model = selectedModels[provider] || PROVIDERS[provider]?.defaultModel || "gemini-flash-latest";
-        const customEndpoint = customEndpoints[provider] || "";
+        const activeSettings = await getActiveAiSettings();
+        const { provider, model, apiKey, customEndpoint, customSystemPrompt: storedCustomPrompt } = activeSettings;
 
         const { systemPrompt, userPrompt } = buildFollowUpPrompt({
           contextSummary,
@@ -313,8 +317,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           question: question.trim()
         });
 
-        const finalSystemPrompt = store.customSystemPrompt && store.customSystemPrompt.trim()
-          ? `${store.customSystemPrompt.trim()}\n\n${systemPrompt}`
+        const finalSystemPrompt = storedCustomPrompt && storedCustomPrompt.trim()
+          ? `${storedCustomPrompt.trim()}\n\n${systemPrompt}`
           : systemPrompt;
 
         const answer = await callAiApi({
