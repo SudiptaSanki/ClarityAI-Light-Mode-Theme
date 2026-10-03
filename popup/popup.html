@@ -60,15 +60,20 @@
 
       <!-- Main Controls -->
       <div class="control-section">
-        <label class="control-label" for="consultationMode">Consultation Mode</label>
-        <div class="mode-select-wrapper">
-          <select id="consultationMode" class="form-select">
-            <option value="summary_concise">⚡ Quick Summary (3-4 sentences)</option>
-            <option value="summary_bullets">📌 Key Takeaways (Bullet highlights)</option>
-            <option value="consultation_deep">🔍 Deep-Dive Consultation (Full analysis)</option>
-            <option value="action_items">✅ Action Items & Checklist</option>
-            <option value="critical_review">⚖️ Critical Review & Assessment</option>
-          </select>
+        <div class="control-main-row">
+          <div class="mode-select-wrapper">
+            <select id="consultationMode" class="form-select">
+              <option value="summary_concise">⚡ Quick Summary (3-4 sentences)</option>
+              <option value="summary_bullets">📌 Key Takeaways (Bullet highlights)</option>
+              <option value="consultation_deep">🔍 Deep-Dive Consultation (Full analysis)</option>
+              <option value="action_items">✅ Action Items & Checklist</option>
+              <option value="critical_review">⚖️ Critical Review & Assessment</option>
+            </select>
+          </div>
+          <button id="runConsultationBtn" class="btn btn-primary btn-consult">
+            <span id="btnIcon">✨</span>
+            <span id="btnText">Analyze Page</span>
+          </button>
         </div>
 
         <!-- Custom Question Consultation Bar -->
@@ -77,15 +82,8 @@
             type="text" 
             id="customQuestionInput" 
             class="form-input" 
-            placeholder="Ask a specific question about this page (optional)..." 
+            placeholder="Search page or focus query with active AI..." 
           />
-        </div>
-
-        <div class="action-buttons">
-          <button id="runConsultationBtn" class="btn btn-primary btn-block">
-            <span id="btnIcon">✨</span>
-            <span id="btnText">Analyze Page</span>
-          </button>
         </div>
       </div>
 
@@ -137,15 +135,18 @@
       </div>
 
       <!-- Interactive Follow-up Consultation Section -->
-      <div id="qaSection" class="qa-section hidden">
+      <div id="qaSection" class="qa-section">
         <div class="qa-input-wrapper">
           <input 
             type="text" 
             id="qaInput" 
             class="form-input qa-input" 
-            placeholder="Ask a follow-up consultation question..." 
+            placeholder="Ask for a follow-up question..." 
           />
-          <button id="qaSendBtn" class="btn btn-primary btn-sm qa-send-btn" title="Send question">➤</button>
+          <button id="qaSendBtn" class="btn btn-primary btn-sm qa-send-btn" title="Ask for a follow-up question">
+            <span id="qaBtnIcon">💬</span>
+            <span id="qaBtnText">Ask</span>
+          </button>
         </div>
         <div id="qaAnswer" class="qa-answer-card hidden"></div>
       </div>

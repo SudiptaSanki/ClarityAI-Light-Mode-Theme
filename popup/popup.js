@@ -90,9 +90,17 @@ function updateDynamicSearchUI(providerId, modelId) {
     runConsultationBtn.title = `Generate summary using ${engineInfo.fullName}`;
   }
 
-  // 3. Update Q&A Placeholder
+  // 3. Dynamic Q&A Placeholder and Model-Specific Ask Button
+  const askLabels = getDynamicAskLabels(currentProvider, currentModel);
   if (qaInput) {
-    qaInput.placeholder = `Ask ${engineInfo.modelName} a follow-up question...`;
+    qaInput.placeholder = askLabels.placeholder;
+  }
+  const qaBtnText = document.getElementById("qaBtnText");
+  if (qaBtnText) {
+    qaBtnText.textContent = askLabels.btnLabel;
+  }
+  if (qaSendBtn) {
+    qaSendBtn.title = askLabels.fullName ? `Ask ${askLabels.fullName} for a follow-up question` : "Ask for a follow-up question";
   }
 
   // 4. Update Empty State if currently empty/visible
@@ -106,6 +114,46 @@ function updateDynamicSearchUI(providerId, modelId) {
       emptyDesc.innerHTML = `Active Model: <strong style="color: var(--accent-primary);">${engineInfo.fullName}</strong>`;
     }
   }
+}
+
+// Helper to formulate smart model-aware follow-up question labels
+function getDynamicAskLabels(providerId, modelId) {
+  const engineInfo = getModelDisplayName(providerId, modelId);
+  const pName = engineInfo.providerName || "";
+  const sName = engineInfo.shortName || "";
+  
+  let askTarget = "";
+  if (pName && sName) {
+    if (pName.toLowerCase().includes("gemini") && sName.toLowerCase().includes("flash")) {
+      askTarget = "Gemini Flash";
+    } else if (pName.toLowerCase().includes("grok") || sName.toLowerCase().includes("grok")) {
+      askTarget = "Grok";
+    } else if (pName.toLowerCase().includes("groq")) {
+      askTarget = sName ? `Groq (${sName})` : "Groq";
+    } else if (sName.toLowerCase().startsWith(pName.toLowerCase())) {
+      askTarget = sName;
+    } else {
+      askTarget = `${pName} ${sName}`.trim();
+    }
+  } else if (sName) {
+    askTarget = sName;
+  } else if (pName && pName !== "AI") {
+    askTarget = pName;
+  }
+
+  const placeholder = askTarget 
+    ? `Ask ${askTarget} for a follow-up question...` 
+    : "Ask for a follow-up question...";
+
+  let btnLabel = "Ask";
+  if (askTarget) {
+    if (askTarget === "Gemini Flash") btnLabel = "Ask Flash";
+    else if (askTarget === "Grok") btnLabel = "Ask Grok";
+    else if (sName && sName.length <= 14) btnLabel = `Ask ${sName}`;
+    else if (pName && pName !== "AI") btnLabel = `Ask ${pName}`;
+  }
+
+  return { placeholder, btnLabel, fullName: engineInfo.fullName };
 }
 
 // Refresh state from chrome.storage
@@ -486,16 +534,12 @@ function displayResult(text, metadata) {
   if (text.startsWith("❌ Error:")) {
     outputContent.innerHTML = `<div class="notice-box danger">${escapeHtml(text)}</div>`;
     metaBar.classList.add("hidden");
-    qaSection.classList.add("hidden");
     return;
   }
 
   const htmlContent = renderMarkdown(text);
   outputContent.innerHTML = htmlContent;
   rawTextBuffer.value = text;
-
-  // Reveal interactive Q&A follow-up
-  qaSection.classList.remove("hidden");
 
   if (metadata) {
     metaBar.classList.remove("hidden");
@@ -514,16 +558,34 @@ async function handleFollowUpQuestion() {
   if (!question) return;
 
   const engineInfo = getModelDisplayName(currentProvider, currentModel);
+  const askLabels = getDynamicAskLabels(currentProvider, currentModel);
+  const qaBtnIcon = document.getElementById("qaBtnIcon");
+  const qaBtnText = document.getElementById("qaBtnText");
+  const origBtnText = qaBtnText ? qaBtnText.textContent : "Ask";
+
   qaSendBtn.disabled = true;
-  qaSendBtn.textContent = "⏳";
+  if (qaBtnIcon) qaBtnIcon.textContent = "⏳";
+  if (qaBtnText) qaBtnText.textContent = "Asking...";
+
   qaAnswer.classList.remove("hidden");
-  qaAnswer.innerHTML = `<span style="color: var(--text-muted);">${engineInfo.modelName} is searching & analyzing the page context...</span>`;
+  qaAnswer.innerHTML = `<span style="color: var(--text-muted);">${engineInfo.modelName || 'AI'} is searching & analyzing the page context...</span>`;
 
   try {
+    // If active page text is not cached yet, extract on the fly
+    if (!currentPageText) {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) {
+          const res = await chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_TEXT" });
+          if (res?.text) currentPageText = res.text;
+        }
+      } catch (_) {}
+    }
+
     const response = await chrome.runtime.sendMessage({
       type: "ASK_CONSULTATION",
       question,
-      contextSummary: currentRawOutput,
+      contextSummary: currentRawOutput || "No prior summary generated yet.",
       pageText: currentPageText
     });
 
@@ -531,7 +593,7 @@ async function handleFollowUpQuestion() {
       qaAnswer.innerHTML = `<span style="color: var(--danger);">❌ ${escapeHtml(response.error)}</span>`;
     } else if (response?.answer) {
       qaAnswer.innerHTML = `
-        <div style="font-weight: 600; margin-bottom: 6px; color: var(--accent-primary);">Q: ${escapeHtml(question)}</div>
+        <div style="font-weight: 600; margin-bottom: 4px; color: var(--accent-primary);">Q: ${escapeHtml(question)}</div>
         <div>${renderMarkdown(response.answer)}</div>
       `;
       qaInput.value = "";
@@ -540,7 +602,8 @@ async function handleFollowUpQuestion() {
     qaAnswer.innerHTML = `<span style="color: var(--danger);">❌ ${escapeHtml(err.message)}</span>`;
   } finally {
     qaSendBtn.disabled = false;
-    qaSendBtn.textContent = "➤";
+    if (qaBtnIcon) qaBtnIcon.textContent = "💬";
+    if (qaBtnText) qaBtnText.textContent = origBtnText;
   }
 }
 
