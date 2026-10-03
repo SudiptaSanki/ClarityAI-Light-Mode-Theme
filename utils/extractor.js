@@ -3,54 +3,67 @@
  * Extracts high-signal reading text while filtering out navigation, ads, footers, and cookie banners.
  */
 export function extractPageContent() {
+  const pageTitle = document.title || "Untitled Page";
+  const pageUrl = window.location.href || "";
+
   // 1. If user has actively selected text on the page, prioritize it!
-  const activeSelection = window.getSelection()?.toString()?.trim();
+  const activeSelection = window.getSelection?.()?.toString()?.trim();
   if (activeSelection && activeSelection.length > 20) {
+    const wordCount = activeSelection.split(/\s+/).filter(Boolean).length;
     return {
-      title: document.title || "Selected Text",
-      url: window.location.href,
+      title: pageTitle,
+      url: pageUrl,
       content: activeSelection,
+      text: activeSelection,
       isSelection: true,
-      wordCount: activeSelection.split(/\s+/).length
+      wordCount
     };
   }
 
-  // 2. Clone document or body to inspect without modifying page DOM
-  const title = document.title || "";
-  const url = window.location.href || "";
-  const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute("content") || "";
+  // 2. Meta description and OpenGraph description
+  const metaDescription =
+    document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+    document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+    "";
 
-  // Elements to completely ignore
-  const ignoredSelectors = [
-    "script", "style", "noscript", "svg", "canvas", "iframe",
-    "nav", "footer", "header", "aside", "form", "dialog",
-    "[role='navigation']", "[role='banner']", "[role='contentinfo']",
-    ".cookie-banner", "#cookie-notice", ".ad", ".ads", ".advertisement",
-    ".sidebar", ".comment-section", ".comments"
-  ];
+  // Elements and tags to completely ignore
+  const ignoredTags = new Set([
+    "SCRIPT", "STYLE", "NOSCRIPT", "NAV", "HEADER", "FOOTER",
+    "ASIDE", "DIALOG", "IFRAME", "SVG", "CANVAS", "FORM", "BUTTON"
+  ]);
 
-  // Look for main content container
+  // Look for prime article or main content container
   const mainCandidates = [
     document.querySelector("article"),
     document.querySelector("main"),
     document.querySelector("[role='main']"),
     document.querySelector(".post-content"),
     document.querySelector(".article-content"),
+    document.querySelector(".entry-content"),
     document.querySelector(".content"),
     document.body
   ];
 
-  const rootElement = mainCandidates.find(el => el && el.innerText && el.innerText.trim().length > 100) || document.body;
-  const clone = rootElement.cloneNode(true);
+  const rootElement = mainCandidates.find(el => el && el.innerText && el.innerText.trim().length > 250) || document.body;
 
-  // Remove unwanted elements
-  ignoredSelectors.forEach(sel => {
-    clone.querySelectorAll(sel).forEach(el => el.remove());
-  });
-
-  // Extract text with clean paragraph structure
-  const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT, {
+  // 3. TreeWalker scanning clean readable text nodes while filtering hidden elements
+  const walker = document.createTreeWalker(rootElement, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) => {
+      let parent = node.parentElement;
+      while (parent && parent !== rootElement) {
+        if (ignoredTags.has(parent.tagName)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        const classOrId = ((parent.className || "") + " " + (parent.id || "")).toLowerCase();
+        if (/advertisement|ad-container|cookie|banner|sidebar|newsletter|social-share|comment-section|comments/i.test(classOrId)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        if (parent.style && (parent.style.display === "none" || parent.style.visibility === "hidden")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        parent = parent.parentElement;
+      }
+
       const text = node.nodeValue?.trim();
       if (!text || text.length < 2) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
@@ -60,28 +73,30 @@ export function extractPageContent() {
   const textBlocks = [];
   let currentNode;
   let totalChars = 0;
-  const MAX_CHARS = 40000; // ample for all modern LLMs
+  const MAX_CHARS = 80000; // ample context for modern LLMs
 
   while ((currentNode = walker.nextNode())) {
     const cleanText = currentNode.nodeValue.replace(/\s+/g, " ").trim();
     if (cleanText) {
       textBlocks.push(cleanText);
-      totalChars += cleanText.length;
-      if (totalChars > MAX_CHARS) {
-        textBlocks.push("[...Content truncated for model context...]");
-        break;
-      }
+      totalChars += cleanText.length + 1;
+      if (totalChars > MAX_CHARS) break;
     }
   }
 
-  const rawExtracted = textBlocks.join("\n\n");
-  const fullContent = (metaDescription ? `Summary context: ${metaDescription}\n\n` : "") + rawExtracted;
+  const rawExtracted = textBlocks.join("\n\n").trim();
+  const fullContent = (metaDescription && rawExtracted)
+    ? `Page Context: ${metaDescription.trim()}\n\n${rawExtracted}`
+    : (rawExtracted || metaDescription.trim());
+
+  const wordCount = fullContent.split(/\s+/).filter(Boolean).length;
 
   return {
-    title,
-    url,
+    title: pageTitle,
+    url: pageUrl,
     content: fullContent.trim(),
+    text: fullContent.trim(),
     isSelection: false,
-    wordCount: fullContent.split(/\s+/).filter(Boolean).length
+    wordCount
   };
 }

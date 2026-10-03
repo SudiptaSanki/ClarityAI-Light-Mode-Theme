@@ -54,22 +54,28 @@
 
             <!-- 2. Model Selection (Preset or Custom input) -->
             <div class="form-group">
-              <label for="modelInput" class="form-label">
-                Model Name / Version
-                <span class="label-badge">Any model supported</span>
-              </label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label for="modelInput" class="form-label" style="margin-bottom: 0;">
+                  Model Name / Version
+                  <span class="label-badge">Any model supported</span>
+                </label>
+                <button type="button" id="autoResolveModelBtn" class="btn btn-secondary btn-sm" title="Probe provider API, discover available models, and auto-heal version mismatches">
+                  🔍 Auto-Detect & Resolve Working Model
+                </button>
+              </div>
               <div class="model-input-group">
                 <input 
                   type="text" 
                   id="modelInput" 
                   class="form-control" 
                   list="modelSuggestionsList" 
-                  placeholder="e.g. gemini-2.5-flash or type any model" 
+                  placeholder="e.g. gemini-flash-latest or type any model" 
                 />
                 <datalist id="modelSuggestionsList"></datalist>
               </div>
+              <div id="modelAutoFixNotice" class="notice-box hidden" style="margin-top: 8px;"></div>
               <div class="form-hint">
-                Pick from suggestions or <strong>type any model version</strong> (e.g. gemini-2.5-flash, llama-3.3-70b-versatile, gpt-4o-mini). Never hardcoded.
+                Pick from suggestions or <strong>type any model version</strong> (e.g. gemini-flash-latest, llama-3.3-70b-versatile, gpt-4o-mini). Never hardcoded.
               </div>
             </div>
 
@@ -85,9 +91,11 @@
                   id="apiKeyInput" 
                   class="form-control" 
                   placeholder="Paste your API key here..." 
+                  autocomplete="off"
                 />
                 <button type="button" id="toggleApiKeyVisibility" class="btn-eye" title="Show/Hide API Key">👁️</button>
               </div>
+              <div id="keyDetectedNotice" class="key-detection-notice hidden"></div>
               <div id="keyGuideBox" class="guide-box">
                 <div class="guide-box-header">
                   <span class="guide-icon">🔑</span>
@@ -246,7 +254,7 @@
                     <li>Copy key (starts with <code>AIzaSy...</code>) and paste above</li>
                   </ol>
                 </div>
-                <button class="btn btn-outline btn-sm quick-select-btn" data-provider="gemini" data-model="gemini-2.5-flash">
+                <button class="btn btn-outline btn-sm quick-select-btn" data-provider="gemini" data-model="gemini-flash-latest">
                   Select Gemini Preset
                 </button>
               </div>

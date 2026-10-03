@@ -1,4 +1,5 @@
-// Registry and client for all AI providers and models
+// ClarityAI Universal Multi-Provider AI Engine & Dynamic Model Routing Architecture
+// Supports Gemini, Groq (Free), OpenRouter (Free/Paid), OpenAI, Anthropic, DeepSeek, Mistral, and Custom/Local endpoints.
 
 export const PROVIDERS = {
   gemini: {
@@ -7,25 +8,50 @@ export const PROVIDERS = {
     badge: "Free tier available",
     tagline: "Official Google Gemini API with generous free tier",
     keyUrl: "https://aistudio.google.com/app/apikey",
-    keyPlaceholder: "AIzaSy...",
-    defaultModel: "gemini-2.5-flash",
+    keyPlaceholder: "AIzaSy... or AQ...",
+    keyInstructions: "1. Visit Google AI Studio (aistudio.google.com)\n2. Sign in with your Google account\n3. Click 'Create API key'\n4. Copy and paste your key here",
+    defaultModel: "gemini-flash-latest",
     models: [
-      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash (Recommended - Fast & Smart)" },
-      { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro (Deep Reasoning)" },
-      { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Fast & Capable)" },
-      { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash (Standard)" },
-      { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Long Context)" }
+      { id: "gemini-flash-latest", name: "Gemini Flash (Latest Stable - Recommended)" },
+      { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash (Fast & Intelligent)" },
+      { id: "gemini-3.8-flash", name: "Gemini 3.8 Flash (Latest Preview)" },
+      { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite (Ultra-fast)" },
+      { id: "gemini-pro-latest", name: "Gemini Pro (Latest Capable)" },
+      { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash (Supported keys)" },
+      { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Fast & Capable)" }
     ],
     supportsCustomModel: true,
-    requiresEndpoint: false
+    requiresEndpoint: false,
+    defaultEndpoint: "https://generativelanguage.googleapis.com/v1beta"
+  },
+  groq: {
+    id: "groq",
+    name: "Groq (Ultra-Fast & Free)",
+    badge: "100% Free & Lightning Fast",
+    tagline: "Extreme inference speed powered by LPU technology with free tier",
+    keyUrl: "https://console.groq.com/keys",
+    keyPlaceholder: "gsk_...",
+    keyInstructions: "1. Go to console.groq.com/keys\n2. Sign in or create a free account\n3. Click 'Create API Key'\n4. Copy and paste your key here (Free & blazing fast)",
+    defaultModel: "llama-3.3-70b-versatile",
+    models: [
+      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (Free, Highly Recommended)" },
+      { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant (Free, Fastest)" },
+      { id: "deepseek-r1-distill-llama-70b", name: "DeepSeek R1 Distill Llama 70B (Free Reasoning)" },
+      { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (Free, 32k Context)" },
+      { id: "gemma2-9b-it", name: "Gemma 2 9B IT (Free, Google open weights)" }
+    ],
+    supportsCustomModel: true,
+    requiresEndpoint: false,
+    defaultEndpoint: "https://api.groq.com/openai/v1/chat/completions"
   },
   openrouter: {
     id: "openrouter",
     name: "OpenRouter (Free & Paid Models)",
     badge: "100% Free Models Available",
-    tagline: "Access 100+ models with one key (includes completely free models)",
+    tagline: "Access 200+ models with one key (includes completely free models)",
     keyUrl: "https://openrouter.ai/keys",
     keyPlaceholder: "sk-or-v1-...",
+    keyInstructions: "1. Go to openrouter.ai/keys\n2. Create a free account & click 'Create Key'\n3. Models tagged ':free' require zero balance to use!",
     defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
     models: [
       { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (100% Free)" },
@@ -33,62 +59,52 @@ export const PROVIDERS = {
       { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1 (100% Free - Reasoning)" },
       { id: "mistralai/mistral-7b-instruct:free", name: "Mistral 7B Instruct (100% Free)" },
       { id: "qwen/qwen-2.5-72b-instruct:free", name: "Qwen 2.5 72B (100% Free)" },
+      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini (Paid / Low Cost)" },
       { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet (Paid)" },
-      { id: "openai/gpt-4o", name: "GPT-4o (Paid)" },
-      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini (Paid / Low Cost)" }
+      { id: "openai/gpt-4o", name: "GPT-4o (Paid)" }
     ],
     supportsCustomModel: true,
-    requiresEndpoint: false
-  },
-  groq: {
-    id: "groq",
-    name: "Groq (Ultra-Fast & Free)",
-    badge: "Free & Lightning Fast",
-    tagline: "Extreme inference speed powered by LPU technology with free tier",
-    keyUrl: "https://console.groq.com/keys",
-    keyPlaceholder: "gsk_...",
-    defaultModel: "llama-3.3-70b-versatile",
-    models: [
-      { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile (Recommended)" },
-      { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B Instant (Super Fast)" },
-      { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B (32k Context)" },
-      { id: "gemma2-9b-it", name: "Gemma 2 9B IT" }
-    ],
-    supportsCustomModel: true,
-    requiresEndpoint: false
+    requiresEndpoint: false,
+    defaultEndpoint: "https://openrouter.ai/api/v1/chat/completions"
   },
   openai: {
     id: "openai",
     name: "OpenAI (ChatGPT)",
     badge: "Industry Standard",
-    tagline: "Official OpenAI GPT models (GPT-4o, GPT-4o-mini, o3)",
+    tagline: "Official OpenAI GPT models (GPT-4o, GPT-4o-mini, o3-mini)",
     keyUrl: "https://platform.openai.com/api-keys",
     keyPlaceholder: "sk-proj-...",
+    keyInstructions: "1. Go to platform.openai.com/api-keys\n2. Create a new secret key\n3. Copy and paste it here",
     defaultModel: "gpt-4o-mini",
     models: [
       { id: "gpt-4o-mini", name: "GPT-4o Mini (Fast & Affordable)" },
       { id: "gpt-4o", name: "GPT-4o (High Intelligence Flagship)" },
       { id: "o3-mini", name: "o3-mini (Advanced Reasoning)" },
+      { id: "o1-mini", name: "o1-mini (Reasoning)" },
       { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo (Legacy)" }
     ],
     supportsCustomModel: true,
-    requiresEndpoint: false
+    requiresEndpoint: false,
+    defaultEndpoint: "https://api.openai.com/v1/chat/completions"
   },
   anthropic: {
     id: "anthropic",
     name: "Anthropic Claude",
     badge: "Nuanced & Thoughtful",
-    tagline: "Claude 3.5 Sonnet & Haiku models",
+    tagline: "Claude 3.7 Sonnet, 3.5 Sonnet & Haiku models",
     keyUrl: "https://console.anthropic.com/settings/keys",
-    keyPlaceholder: "sk-ant-api03-...",
-    defaultModel: "claude-3-5-sonnet-latest",
+    keyPlaceholder: "sk-ant-...",
+    keyInstructions: "1. Go to console.anthropic.com/settings/keys\n2. Create an API key\n3. Copy and paste it here",
+    defaultModel: "claude-3-5-haiku-latest",
     models: [
-      { id: "claude-3-5-sonnet-latest", name: "Claude 3.5 Sonnet (State-of-the-Art)" },
       { id: "claude-3-5-haiku-latest", name: "Claude 3.5 Haiku (Fast & Lightweight)" },
+      { id: "claude-3-7-sonnet-latest", name: "Claude 3.7 Sonnet (Latest Flagship)" },
+      { id: "claude-3-5-sonnet-latest", name: "Claude 3.5 Sonnet (State-of-the-Art)" },
       { id: "claude-3-opus-latest", name: "Claude 3 Opus (Complex Analysis)" }
     ],
     supportsCustomModel: true,
-    requiresEndpoint: false
+    requiresEndpoint: false,
+    defaultEndpoint: "https://api.anthropic.com/v1/messages"
   },
   deepseek: {
     id: "deepseek",
@@ -97,13 +113,15 @@ export const PROVIDERS = {
     tagline: "High-capability reasoning and general models at low cost",
     keyUrl: "https://platform.deepseek.com/api_keys",
     keyPlaceholder: "sk-...",
+    keyInstructions: "1. Visit platform.deepseek.com/api_keys\n2. Create an API key\n3. Copy and paste it here",
     defaultModel: "deepseek-chat",
     models: [
-      { id: "deepseek-chat", name: "DeepSeek-V3 (Chat)" },
-      { id: "deepseek-reasoner", name: "DeepSeek-R1 (Reasoner)" }
+      { id: "deepseek-chat", name: "DeepSeek Chat (V3)" },
+      { id: "deepseek-reasoner", name: "DeepSeek Reasoner (R1)" }
     ],
     supportsCustomModel: true,
-    requiresEndpoint: false
+    requiresEndpoint: false,
+    defaultEndpoint: "https://api.deepseek.com/chat/completions"
   },
   mistral: {
     id: "mistral",
@@ -112,35 +130,698 @@ export const PROVIDERS = {
     tagline: "Efficient open and frontier models from Mistral",
     keyUrl: "https://console.mistral.ai/api-keys/",
     keyPlaceholder: "...",
+    keyInstructions: "1. Visit console.mistral.ai\n2. Create an account and generate an API key\n3. Copy and paste your key here",
     defaultModel: "mistral-small-latest",
     models: [
       { id: "mistral-small-latest", name: "Mistral Small (Fast & Smart)" },
-      { id: "mistral-large-latest", name: "Mistral Large (Flagship)" },
+      { id: "mistral-large-latest", name: "Mistral Large (Flagship Reasoning)" },
       { id: "open-mistral-nemo", name: "Mistral Nemo 12B" },
-      { id: "codestral-latest", name: "Codestral (Code & Structure)" }
+      { id: "codestral-latest", name: "Codestral (Code & Data)" }
     ],
     supportsCustomModel: true,
-    requiresEndpoint: false
+    requiresEndpoint: false,
+    defaultEndpoint: "https://api.mistral.ai/v1/chat/completions"
   },
   custom: {
     id: "custom",
     name: "Custom / Local AI (Ollama, LM Studio)",
     badge: "100% Offline & Private",
     tagline: "Any custom OpenAI-compatible server or local model runtime",
-    keyUrl: "",
+    keyUrl: "https://ollama.com",
     keyPlaceholder: "Optional API key or leave blank",
+    keyInstructions: "Use local servers (e.g. Ollama http://localhost:11434/v1, LM Studio http://localhost:1234/v1) or any OpenAI-compatible API gateway.",
     defaultEndpoint: "http://localhost:11434/v1/chat/completions",
     defaultModel: "llama3",
     models: [
       { id: "llama3", name: "llama3 (Ollama)" },
       { id: "mistral", name: "mistral (Ollama)" },
+      { id: "deepseek-r1", name: "deepseek-r1 (Ollama)" },
       { id: "qwen2.5", name: "qwen2.5 (Ollama)" },
-      { id: "deepseek-r1:latest", name: "deepseek-r1:latest (Ollama)" }
+      { id: "phi3", name: "phi3 (Ollama)" }
     ],
     supportsCustomModel: true,
     requiresEndpoint: true
   }
 };
+
+export const AI_PROVIDERS = PROVIDERS;
+
+/**
+ * Smart Key Anatomy Classifier
+ * Inspects key prefix, length, character set, and entropy
+ */
+export function analyzeKeyFigure(key) {
+  if (!key || typeof key !== "string") {
+    return {
+      provider: null,
+      providerName: "Unknown",
+      confidence: "low",
+      description: "Empty or invalid key format",
+      probableModels: []
+    };
+  }
+
+  const k = key.trim();
+
+  // 1. Custom / Local Endpoint URL pattern
+  if (/^(https?:\/\/|localhost|127\.0\.0\.1)/i.test(k)) {
+    return {
+      provider: "custom",
+      providerName: PROVIDERS.custom?.name || "Custom / Local",
+      confidence: "high",
+      description: "Local model or custom server endpoint URL",
+      probableModels: (PROVIDERS.custom?.models || []).map(m => m.id)
+    };
+  }
+
+  // 2. Groq: starts with gsk_
+  if (k.startsWith("gsk_")) {
+    return {
+      provider: "groq",
+      providerName: PROVIDERS.groq?.name || "Groq",
+      confidence: "high",
+      description: "Groq Cloud API Key (Extreme Inference Speed)",
+      probableModels: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "deepseek-r1-distill-llama-70b"]
+    };
+  }
+
+  // 3. OpenRouter: starts with sk-or-v1-
+  if (k.startsWith("sk-or-v1-")) {
+    return {
+      provider: "openrouter",
+      providerName: PROVIDERS.openrouter?.name || "OpenRouter",
+      confidence: "high",
+      description: "OpenRouter Unified API Key",
+      probableModels: ["meta-llama/llama-3.3-70b-instruct:free", "google/gemini-2.0-flash-exp:free", "deepseek/deepseek-r1:free"]
+    };
+  }
+
+  // 4. Anthropic Claude: starts with sk-ant- or sk-ant-api03-
+  if (k.startsWith("sk-ant-") || k.startsWith("sk-ant-api03-")) {
+    return {
+      provider: "anthropic",
+      providerName: PROVIDERS.anthropic?.name || "Anthropic Claude",
+      confidence: "high",
+      description: "Anthropic Claude API Key",
+      probableModels: ["claude-3-5-haiku-latest", "claude-3-7-sonnet-latest", "claude-3-5-sonnet-latest"]
+    };
+  }
+
+  // 5. OpenAI: starts with sk-proj-, sk-None-, or legacy sk- with length >= 48
+  if (k.startsWith("sk-proj-") || k.startsWith("sk-None-") || (k.startsWith("sk-") && k.length >= 48)) {
+    return {
+      provider: "openai",
+      providerName: PROVIDERS.openai?.name || "OpenAI",
+      confidence: "high",
+      description: "OpenAI Project / Secret API Key",
+      probableModels: ["gpt-4o-mini", "gpt-4o", "o3-mini", "o1-mini"]
+    };
+  }
+
+  // 6. Google Gemini: ^AIzaSy[0-9A-Za-z_-]{33}$, ^AIza[0-9A-Za-z_-]{30,}, or ^AQ\.[0-9A-Za-z_-]+
+  if (/^AIzaSy[0-9A-Za-z_-]{33}$/.test(k) || /^AIza[0-9A-Za-z_-]{30,}/.test(k) || /^AQ\.[0-9A-Za-z_-]+/.test(k)) {
+    return {
+      provider: "gemini",
+      providerName: PROVIDERS.gemini?.name || "Google Gemini",
+      confidence: "high",
+      description: "Google AI Studio Gemini API Key",
+      probableModels: ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+    };
+  }
+
+  // 7. Mistral AI: 32-character hexadecimal /^[a-fA-F0-9]{32}$/
+  if (/^[a-fA-F0-9]{32}$/.test(k)) {
+    return {
+      provider: "mistral",
+      providerName: PROVIDERS.mistral?.name || "Mistral AI",
+      confidence: "high",
+      description: "Mistral AI API Key",
+      probableModels: ["mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"]
+    };
+  }
+
+  // 8. DeepSeek: starts with sk-, length 30-46 chars (excluding openrouter, anthropic, or openai project prefixes)
+  if (k.startsWith("sk-") && k.length >= 30 && k.length <= 46 && !k.startsWith("sk-or-v1-") && !k.startsWith("sk-ant-") && !k.startsWith("sk-proj-")) {
+    return {
+      provider: "deepseek",
+      providerName: PROVIDERS.deepseek?.name || "DeepSeek",
+      confidence: "medium",
+      description: "DeepSeek Platform API Key",
+      probableModels: ["deepseek-chat", "deepseek-reasoner"]
+    };
+  }
+
+  return {
+    provider: null,
+    providerName: "Unknown",
+    confidence: "low",
+    description: "Unrecognized key format",
+    probableModels: []
+  };
+}
+
+/**
+ * Intelligent Provider Auto-Detection from Key Pattern
+ */
+export function detectProviderFromKey(key) {
+  const figure = analyzeKeyFigure(key);
+  return figure.provider;
+}
+
+/**
+ * Active Gemini Multi-Model Probing Matrix
+ * Concurrently queries candidate models with 1-token requests to find all working models
+ * and select the fastest operational model.
+ */
+export async function probeGeminiModelMatrix(apiKey) {
+  if (!apiKey || typeof apiKey !== "string") {
+    return { success: false, error: "No API key provided for matrix probe." };
+  }
+  const key = apiKey.trim();
+
+  const candidateModels = [
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-flash-lite-latest",
+    "gemini-pro-latest",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash"
+  ];
+
+  const probePromises = candidateModels.map(async (modelId) => {
+    const startTime = Date.now();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(key)}`;
+    const body = {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      generationConfig: { maxOutputTokens: 1, temperature: 0.1 }
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const latency = Date.now() - startTime;
+
+      if (res.ok || res.status === 429) {
+        return {
+          modelId,
+          working: true,
+          status: res.status,
+          latency,
+          error: null
+        };
+      } else {
+        const errText = await parseErrorResponse(res);
+        return {
+          modelId,
+          working: false,
+          status: res.status,
+          latency,
+          error: errText
+        };
+      }
+    } catch (netErr) {
+      return {
+        modelId,
+        working: false,
+        status: 0,
+        latency: Date.now() - startTime,
+        error: netErr.message
+      };
+    }
+  });
+
+  const settled = await Promise.allSettled(probePromises);
+  const workingModels = settled
+    .filter(r => r.status === "fulfilled" && r.value.working)
+    .map(r => r.value)
+    .sort((a, b) => a.latency - b.latency);
+
+  if (workingModels.length > 0) {
+    const bestCandidate = workingModels[0];
+    return {
+      success: true,
+      bestModel: bestCandidate.modelId,
+      latency: bestCandidate.latency,
+      workingModels: workingModels.map(m => m.modelId),
+      details: workingModels
+    };
+  }
+
+  return {
+    success: false,
+    bestModel: null,
+    latency: 0,
+    workingModels: [],
+    details: settled.map(r => r.value || { working: false, error: r.reason?.message })
+  };
+}
+
+/**
+ * Cross-Provider Fallback Probing
+ * Probes provider endpoints if key pattern is ambiguous
+ */
+export async function probeAndDetectProvider(key) {
+  if (!key || typeof key !== "string") return null;
+  const k = key.trim();
+
+  // 1. Evaluate anatomy classifier first
+  const figure = analyzeKeyFigure(k);
+  if (figure.confidence === "high" && figure.provider) {
+    return figure.provider;
+  }
+
+  // 2. Parallel probing across endpoints using Promise.any
+  const endpoints = [
+    // Gemini
+    (async () => {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k)}`);
+      if (res.ok || res.status === 429) return "gemini";
+      throw new Error("Not Gemini");
+    })(),
+    // Groq
+    (async () => {
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { "Authorization": `Bearer ${k}` }
+      });
+      if (res.ok || res.status === 429) return "groq";
+      throw new Error("Not Groq");
+    })(),
+    // OpenRouter
+    (async () => {
+      const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+        headers: { "Authorization": `Bearer ${k}` }
+      });
+      if (res.ok || res.status === 429) return "openrouter";
+      throw new Error("Not OpenRouter");
+    })(),
+    // Mistral
+    (async () => {
+      const res = await fetch("https://api.mistral.ai/v1/models", {
+        headers: { "Authorization": `Bearer ${k}` }
+      });
+      if (res.ok || res.status === 429) return "mistral";
+      throw new Error("Not Mistral");
+    })(),
+    // OpenAI
+    (async () => {
+      const res = await fetch("https://api.openai.com/v1/models", {
+        headers: { "Authorization": `Bearer ${k}` }
+      });
+      if (res.ok || res.status === 429) return "openai";
+      throw new Error("Not OpenAI");
+    })(),
+    // DeepSeek
+    (async () => {
+      const res = await fetch("https://api.deepseek.com/models", {
+        headers: { "Authorization": `Bearer ${k}` }
+      });
+      if (res.ok || res.status === 429) return "deepseek";
+      throw new Error("Not DeepSeek");
+    })()
+  ];
+
+  try {
+    const winner = await Promise.any(endpoints);
+    return winner;
+  } catch (_) {
+    return figure.provider || null;
+  }
+}
+
+/**
+ * Resolves a human-readable display descriptor for any provider and model combination.
+ */
+export function getModelDisplayName(providerId = "gemini", modelId = "") {
+  const provider = PROVIDERS[providerId] || PROVIDERS.gemini;
+  const pName = provider ? provider.name.replace("Google ", "").split(" ")[0] : "AI";
+
+  if (!modelId) {
+    modelId = provider ? provider.defaultModel : "";
+  }
+
+  // 1. Match against predefined models in PROVIDERS
+  if (provider && Array.isArray(provider.models)) {
+    const found = provider.models.find(m => m.id === modelId);
+    if (found) {
+      const cleanName = found.name.replace(/\s*\((Free|Paid|Latest|Fast|100%|Supported|Ultra-fast|Flagship|European|Code|Google)[^)]*\)/gi, "").trim();
+      let short = cleanName;
+      if (cleanName.includes("Flash Lite")) short = "Flash Lite";
+      else if (cleanName.includes("Flash")) short = cleanName.replace(/Gemini\s*/i, "");
+      else if (cleanName.includes("Pro")) short = cleanName.replace(/Gemini\s*/i, "");
+      else if (cleanName.includes("Llama 3.3")) short = "Llama 3.3";
+      else if (cleanName.includes("DeepSeek R1")) short = "DeepSeek R1";
+      else if (cleanName.includes("DeepSeek Chat")) short = "DeepSeek V3";
+      else if (cleanName.includes("GPT-4o Mini")) short = "GPT-4o Mini";
+      else if (cleanName.includes("Claude 3.7")) short = "Claude 3.7";
+      else if (cleanName.includes("Claude 3.5")) short = "Claude 3.5";
+
+      return {
+        modelName: cleanName,
+        providerName: pName,
+        fullName: `${cleanName} (${pName})`,
+        shortName: short,
+        toString() { return this.fullName; }
+      };
+    }
+  }
+
+  // 2. Normalize and format custom or API-discovered model IDs
+  let cleanId = String(modelId || "").trim();
+  cleanId = cleanId.replace(/^models\//, "");
+  cleanId = cleanId.replace(/^(google|meta-llama|deepseek|mistralai|openai|anthropic)\//, "");
+  cleanId = cleanId.replace(/:free$/, "");
+
+  let readableModel = cleanId;
+  let short = cleanId;
+
+  if (/gemini-3\.5-flash/i.test(cleanId)) { readableModel = "Gemini 3.5 Flash"; short = "3.5 Flash"; }
+  else if (/gemini-3\.8-flash/i.test(cleanId)) { readableModel = "Gemini 3.8 Flash"; short = "3.8 Flash"; }
+  else if (/gemini-flash-latest/i.test(cleanId)) { readableModel = "Gemini Flash (Latest)"; short = "Flash Latest"; }
+  else if (/gemini-flash-lite/i.test(cleanId)) { readableModel = "Gemini Flash Lite"; short = "Flash Lite"; }
+  else if (/gemini-pro-latest/i.test(cleanId)) { readableModel = "Gemini Pro (Latest)"; short = "Pro Latest"; }
+  else if (/gemini-2\.5-flash/i.test(cleanId)) { readableModel = "Gemini 2.5 Flash"; short = "2.5 Flash"; }
+  else if (/llama-3\.3-70b/i.test(cleanId)) { readableModel = "Llama 3.3 70B"; short = "Llama 3.3"; }
+  else if (/deepseek-r1/i.test(cleanId)) { readableModel = "DeepSeek R1"; short = "DeepSeek R1"; }
+  else if (/gpt-4o-mini/i.test(cleanId)) { readableModel = "GPT-4o Mini"; short = "GPT-4o Mini"; }
+  else if (/claude-3-7-sonnet/i.test(cleanId)) { readableModel = "Claude 3.7 Sonnet"; short = "Claude 3.7"; }
+  else {
+    readableModel = cleanId.length > 20 ? cleanId.slice(0, 18) + "…" : cleanId;
+    short = readableModel;
+  }
+
+  return {
+    modelName: readableModel,
+    providerName: pName,
+    fullName: `${readableModel} (${pName})`,
+    shortName: short,
+    toString() { return this.fullName; }
+  };
+}
+
+/**
+ * Fetches actual active model IDs from the provider API endpoint
+ */
+export async function fetchAvailableModels({ provider = "gemini", apiKey = "", customEndpoint = "" }) {
+  if (!apiKey && provider !== "custom") {
+    throw new Error(`API key required to fetch models for ${provider}.`);
+  }
+
+  // 1. Google Gemini Models Discovery
+  if (provider === "gemini") {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey.trim())}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await parseErrorResponse(res);
+      throw new Error(`Failed to list Gemini models (${res.status}): ${err}`);
+    }
+    const data = await res.json();
+    return (data.models || [])
+      .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+      .map(m => {
+        const id = m.name.replace(/^models\//, "");
+        return {
+          id,
+          name: m.displayName ? `${m.displayName} (${id})` : id,
+          description: m.description || ""
+        };
+      });
+  }
+
+  // 2. Groq Models Discovery
+  if (provider === "groq") {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { "Authorization": `Bearer ${apiKey.trim()}` }
+    });
+    if (!res.ok) {
+      const err = await parseErrorResponse(res);
+      throw new Error(`Failed to list Groq models: ${err}`);
+    }
+    const data = await res.json();
+    return (data.data || []).map(m => ({ id: m.id, name: m.id }));
+  }
+
+  // 3. OpenRouter Models Discovery
+  if (provider === "openrouter") {
+    const res = await fetch("https://openrouter.ai/api/v1/models");
+    if (!res.ok) throw new Error("Could not fetch OpenRouter models");
+    const data = await res.json();
+    return (data.data || []).slice(0, 50).map(m => ({
+      id: m.id,
+      name: `${m.name || m.id}${m.id.endsWith(':free') ? ' (Free)' : ''}`
+    }));
+  }
+
+  // 4. Local / Ollama Models Discovery
+  if (provider === "custom") {
+    const base = customEndpoint ? customEndpoint.replace(/\/chat\/completions\/?$/, "") : "http://localhost:11434";
+    try {
+      const res = await fetch(`${base}/api/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.models || []).map(m => ({ id: m.name, name: m.name }));
+      }
+    } catch (_) {}
+    return PROVIDERS.custom.models;
+  }
+
+  return PROVIDERS[provider]?.models || [];
+}
+
+/**
+ * Intelligent Dynamic Model Auto-Resolution & Routing
+ * Automatically heals model version mismatches (e.g. key requires 3.5 or flash-latest instead of 2.5).
+ */
+export async function autoResolveWorkingModel({ provider = "", apiKey = "", desiredModel = "", customEndpoint = "" }) {
+  const key = (apiKey || "").trim();
+  if (!key && provider !== "custom") {
+    return {
+      success: false,
+      error: "No API key provided",
+      help: "Please paste your API key in the field above to verify and auto-resolve models."
+    };
+  }
+
+  // 1. Analyze Key Figure Anatomy
+  const keyFigure = analyzeKeyFigure(key);
+
+  // Auto-switch provider if high confidence and differs from selected
+  let activeProvider = provider;
+  if (!activeProvider || activeProvider === "auto" || (keyFigure.confidence === "high" && keyFigure.provider && keyFigure.provider !== activeProvider)) {
+    activeProvider = keyFigure.provider || (await probeAndDetectProvider(key)) || activeProvider || "gemini";
+  }
+
+  const providerDef = PROVIDERS[activeProvider] || PROVIDERS.gemini;
+  let targetModel = desiredModel ? desiredModel.trim() : providerDef.defaultModel;
+
+  // 2. Active Gemini Multi-Model Probing Matrix
+  if (activeProvider === "gemini") {
+    try {
+      const matrixResult = await probeGeminiModelMatrix(key);
+
+      if (matrixResult.success && matrixResult.workingModels.length > 0) {
+        let chosenModel = targetModel;
+        let isChanged = false;
+
+        if (matrixResult.workingModels.includes(targetModel)) {
+          chosenModel = targetModel;
+          isChanged = false;
+        } else {
+          chosenModel = matrixResult.bestModel || matrixResult.workingModels[0];
+          isChanged = (targetModel !== chosenModel);
+        }
+
+        chrome.storage.local.get(["selectedModels", "models"]).then(({ selectedModels = {}, models = {} }) => {
+          selectedModels.gemini = chosenModel;
+          models.gemini = chosenModel;
+          chrome.storage.local.set({ selectedModels, models });
+        });
+
+        const availableModels = matrixResult.workingModels.map(id => ({ id, name: id }));
+
+        return {
+          success: true,
+          provider: "gemini",
+          resolvedModel: chosenModel,
+          autoFixed: isChanged,
+          previousModel: targetModel,
+          latency: matrixResult.latency,
+          workingModels: matrixResult.workingModels,
+          availableModels,
+          keyFigure,
+          message: isChanged
+            ? `Your key uses model '${chosenModel}'. Automatically updated from '${targetModel}'! (${matrixResult.latency}ms)`
+            : `Model '${chosenModel}' verified and fully operational! (${matrixResult.latency}ms)`
+        };
+      }
+
+      // Fallback: list models via fetchAvailableModels
+      const availableModels = await fetchAvailableModels({ provider: "gemini", apiKey: key });
+      const availableIds = availableModels.map(m => m.id);
+
+      const priorityCandidates = [
+        "gemini-3.5-flash",
+        "gemini-flash-latest",
+        "gemini-3.8-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-flash-lite-latest",
+        "gemini-1.5-flash",
+        "gemini-pro-latest"
+      ];
+
+      const bestMatch = priorityCandidates.find(c => availableIds.includes(c)) || availableIds[0];
+
+      if (bestMatch) {
+        const isChanged = (targetModel !== bestMatch);
+        chrome.storage.local.get(["selectedModels", "models"]).then(({ selectedModels = {}, models = {} }) => {
+          selectedModels.gemini = bestMatch;
+          models.gemini = bestMatch;
+          chrome.storage.local.set({ selectedModels, models });
+        });
+
+        return {
+          success: true,
+          provider: "gemini",
+          resolvedModel: bestMatch,
+          autoFixed: isChanged,
+          previousModel: targetModel,
+          availableModels,
+          keyFigure,
+          message: isChanged
+            ? `Your key supports model '${bestMatch}'. Automatically updated from '${targetModel}'!`
+            : `Model '${bestMatch}' is active and operational!`
+        };
+      }
+    } catch (geminiErr) {
+      // If all Gemini checks fail, probe other providers to see if user pasted e.g. Groq
+      const probedOther = await probeAndDetectProvider(key);
+      if (probedOther && probedOther !== "gemini") {
+        return await autoResolveWorkingModel({
+          provider: probedOther,
+          apiKey: key,
+          desiredModel: ""
+        });
+      }
+
+      const errStr = geminiErr.message || "";
+      let helpMsg = "";
+
+      if (errStr.includes("400") || errStr.includes("401") || errStr.includes("403") || errStr.toLowerCase().includes("invalid api key")) {
+        helpMsg = "Authentication failed: Invalid API key or key lacks permission. Please verify or regenerate your key at https://aistudio.google.com/app/apikey.";
+      } else if (errStr.includes("429") || errStr.toLowerCase().includes("quota") || errStr.toLowerCase().includes("rate limit") || errStr.toLowerCase().includes("resource_exhausted")) {
+        helpMsg = "Free tier quota exhausted or rate limit reached on Google AI Studio. Please wait a short moment, check your billing tier, or use Groq (100% Free & Lightning Fast) in Settings.";
+      } else {
+        helpMsg = `Could not auto-discover models (${errStr}). You can manually enter your model name (e.g. gemini-3.5-flash) in the Model field above.`;
+      }
+
+      return {
+        success: false,
+        provider: "gemini",
+        resolvedModel: targetModel,
+        error: errStr,
+        help: helpMsg,
+        keyFigure
+      };
+    }
+  }
+
+  // 3. Non-Gemini Providers (Groq, OpenAI, OpenRouter, Anthropic, DeepSeek, Mistral, Custom)
+  try {
+    const testResult = await testConnection({ provider: activeProvider, apiKey: key, model: targetModel, customEndpoint });
+    return {
+      success: true,
+      provider: activeProvider,
+      resolvedModel: targetModel,
+      autoFixed: false,
+      latency: testResult.latency,
+      keyFigure,
+      message: `Successfully connected with model '${targetModel}'!`
+    };
+  } catch (err) {
+    const errMsg = err.message || "";
+
+    // If 404, try known fallbacks for this provider
+    if (errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("retired")) {
+      const fallbackList = activeProvider === "groq"
+        ? ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "deepseek-r1-distill-llama-70b"]
+        : (activeProvider === "openrouter"
+          ? ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free"]
+          : (activeProvider === "mistral" ? ["mistral-small-latest", "open-mistral-nemo"] : []));
+
+      for (const fallbackModel of fallbackList) {
+        if (fallbackModel === targetModel) continue;
+        try {
+          const fbRes = await testConnection({ provider: activeProvider, apiKey: key, model: fallbackModel, customEndpoint });
+          chrome.storage.local.get(["selectedModels", "models"]).then(({ selectedModels = {}, models = {} }) => {
+            selectedModels[activeProvider] = fallbackModel;
+            models[activeProvider] = fallbackModel;
+            chrome.storage.local.set({ selectedModels, models });
+          });
+
+          return {
+            success: true,
+            provider: activeProvider,
+            resolvedModel: fallbackModel,
+            autoFixed: true,
+            previousModel: targetModel,
+            latency: fbRes.latency,
+            keyFigure,
+            message: `Previous model was unavailable. Automatically resolved and switched to '${fallbackModel}'!`
+          };
+        } catch (_) {}
+      }
+    }
+
+    let diagnosticHelp = "";
+    if (errMsg.includes("401") || errMsg.includes("403") || errMsg.toLowerCase().includes("invalid api key")) {
+      diagnosticHelp = `Invalid or inactive API key for ${providerDef.name}. Please verify your key at ${providerDef.keyUrl} or generate a fresh key.`;
+    } else if (errMsg.includes("429") || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("rate limit")) {
+      diagnosticHelp = `Free tier quota or rate limit exceeded on ${providerDef.name}. Please wait a minute, switch to Groq (100% Free & Instant), or check billing.`;
+    } else if (errMsg.includes("404")) {
+      diagnosticHelp = `Model '${targetModel}' was not found. Please type a valid model version in Settings or click Auto-Detect.`;
+    } else {
+      diagnosticHelp = `Connection failed: ${errMsg}. Check your network or local server endpoint.`;
+    }
+
+    return {
+      success: false,
+      provider: activeProvider,
+      resolvedModel: targetModel,
+      error: errMsg,
+      help: diagnosticHelp,
+      keyFigure
+    };
+  }
+}
+
+/**
+ * Quick connection tester
+ */
+export async function testConnection({ provider, apiKey, model, customEndpoint }) {
+  const startTime = Date.now();
+  const testPrompt = "Please respond with 'ClarityAI connection successful' if you can read this.";
+  const result = await callAiApi({
+    provider: provider || "gemini",
+    model,
+    apiKey,
+    customEndpoint,
+    systemPrompt: "You are an API diagnostic tester. Respond concisely.",
+    prompt: testPrompt,
+    temperature: 0.1
+  });
+  const latency = Date.now() - startTime;
+  return {
+    success: true,
+    latency,
+    response: result
+  };
+}
 
 /**
  * Universal caller function supporting all providers
@@ -150,14 +831,13 @@ export async function callAiApi({
   model,
   apiKey,
   customEndpoint,
-  systemPrompt = "You are ClarityAI, an elite executive AI consultation assistant. Analyze and summarize web content clearly, accurately, and thoroughly with structured markdown.",
+  systemPrompt = "You are ClarityAI, an executive AI consultation assistant. Analyze and summarize web content clearly, accurately, and thoroughly with structured markdown formatting.",
   prompt,
   temperature = 0.2
 }) {
   const providerConfig = PROVIDERS[provider] || PROVIDERS.gemini;
   const targetModel = (model && model.trim()) || providerConfig.defaultModel;
 
-  // Rate limiting check
   if (!apiKey && provider !== "custom") {
     throw new Error(`Please provide an API key for ${providerConfig.name} in Settings.`);
   }
@@ -166,7 +846,7 @@ export async function callAiApi({
     throw new Error("No content provided to analyze.");
   }
 
-  // 1. Google Gemini Native API
+  // 1. Google Gemini Native API with auto-retries & healing
   if (provider === "gemini") {
     return await callGeminiApi({
       model: targetModel,
@@ -201,59 +881,106 @@ export async function callAiApi({
 }
 
 /**
- * Gemini API implementation
+ * Gemini API implementation with retry and dynamic model auto-fallback
  */
 async function callGeminiApi({ model, apiKey, systemPrompt, prompt, temperature }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  
-  const body = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: `${systemPrompt}\n\n${prompt}` }
-        ]
+  let cleanModel = model.replace(/^models\//, "");
+  const maxRetries = 2;
+  const fallbackModels = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"];
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: `${systemPrompt}\n\n${prompt}` }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: Number(temperature) || 0.2
       }
-    ],
-    generationConfig: {
-      temperature: Number(temperature) || 0.2
-    }
-  };
+    };
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    let errMessage = `Gemini API returned HTTP ${response.status}: ${response.statusText}`;
+    let response;
     try {
-      const errData = await response.json();
-      if (errData?.error?.message) {
-        errMessage = errData.error.message;
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+    } catch (netErr) {
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
       }
-    } catch (_) {
-      // fallback to statusText
+      throw new Error(`Gemini connection error: ${netErr.message}`);
     }
-    handleProviderError(response.status, errMessage, "Google Gemini", model);
+
+    if (!response.ok) {
+      const errorDetails = await parseErrorResponse(response);
+
+      // Handle 404 by attempting fallback to active candidate model
+      if (response.status === 404) {
+        for (const candidate of fallbackModels) {
+          if (candidate === cleanModel) continue;
+          try {
+            console.warn(`Model ${cleanModel} returned 404. Attempting auto-healing fallback to '${candidate}'...`);
+            const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidate)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const fbRes = await fetch(fallbackUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body)
+            });
+            if (fbRes.ok) {
+              const fbData = await fbRes.json();
+              const fbText = fbData?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("").trim();
+              if (fbText) {
+                chrome.storage.local.get(["selectedModels", "models"]).then(({ selectedModels = {}, models = {} }) => {
+                  selectedModels.gemini = candidate;
+                  models.gemini = candidate;
+                  chrome.storage.local.set({ selectedModels, models });
+                });
+                return fbText;
+              }
+            }
+          } catch (_) {}
+        }
+        throw new Error(`Model '${model}' is not available for your Gemini API key (${errorDetails || '404'}). Please select 'Gemini Flash (Latest Stable)' or click Auto-Detect.`);
+      }
+
+      // Handle 503 or 429 with backoff retry
+      if ((response.status === 503 || response.status === 429) && attempt < maxRetries) {
+        if (response.status === 503 && cleanModel !== "gemini-flash-latest") {
+          cleanModel = "gemini-flash-latest";
+        }
+        const waitTime = (attempt + 1) * 1200;
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+
+      handleProviderError(response.status, errorDetails, "Google Gemini", cleanModel);
+    }
+
+    const data = await response.json();
+    const candidate = data?.candidates?.[0];
+
+    if (candidate?.finishReason === "SAFETY") {
+      throw new Error("Gemini filtered the response due to content safety policies.");
+    }
+
+    const parts = candidate?.content?.parts || [];
+    const text = parts.map(p => p?.text || "").join("").trim();
+
+    if (!text) {
+      throw new Error("No response text returned by Gemini. Please try again or switch model in Settings.");
+    }
+
+    return text;
   }
-
-  const data = await response.json();
-  const candidate = data?.candidates?.[0];
-
-  if (candidate?.finishReason === "SAFETY") {
-    throw new Error("Gemini blocked the response due to safety filters on this page's content.");
-  }
-
-  const parts = candidate?.content?.parts || [];
-  const text = parts.map(p => p?.text || "").join("").trim();
-
-  if (!text) {
-    throw new Error("No response text returned by Gemini. Please try again with another model version.");
-  }
-
-  return text;
 }
 
 /**
@@ -284,14 +1011,8 @@ async function callAnthropicApi({ model, apiKey, systemPrompt, prompt, temperatu
   });
 
   if (!response.ok) {
-    let errMessage = `Anthropic API returned HTTP ${response.status}`;
-    try {
-      const errData = await response.json();
-      if (errData?.error?.message) {
-        errMessage = errData.error.message;
-      }
-    } catch (_) {}
-    handleProviderError(response.status, errMessage, "Anthropic Claude", model);
+    const errorDetails = await parseErrorResponse(response);
+    handleProviderError(response.status, errorDetails, "Anthropic Claude", model);
   }
 
   const data = await response.json();
@@ -357,23 +1078,20 @@ async function callOpenAiCompatibleApi({
     temperature: Number(temperature) || 0.2
   };
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body)
-  });
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+  } catch (netErr) {
+    throw new Error(`Connection to ${endpoint} failed: ${netErr.message}. If using a local model, verify the server is running.`);
+  }
 
   if (!response.ok) {
-    let errMessage = `API request to ${provider} failed with HTTP ${response.status}`;
-    try {
-      const errData = await response.json();
-      if (errData?.error?.message) {
-        errMessage = errData.error.message;
-      } else if (typeof errData?.error === "string") {
-        errMessage = errData.error;
-      }
-    } catch (_) {}
-    handleProviderError(response.status, errMessage, provider, model);
+    const errorDetails = await parseErrorResponse(response);
+    handleProviderError(response.status, errorDetails, provider, model);
   }
 
   const data = await response.json();
@@ -387,24 +1105,46 @@ async function callOpenAiCompatibleApi({
 }
 
 /**
+ * Helper to parse error details from fetch response
+ */
+async function parseErrorResponse(response) {
+  try {
+    const text = await response.text();
+    try {
+      const json = JSON.parse(text);
+      return json?.error?.message || json?.error || json?.message || text;
+    } catch {
+      return text.slice(0, 300);
+    }
+  } catch {
+    return response.statusText || `Status ${response.status}`;
+  }
+}
+
+/**
  * Translates HTTP status and raw errors into user-friendly instructions
  */
 function handleProviderError(status, message, providerName, model) {
-  if (status === 401 || status === 403 || message.toLowerCase().includes("invalid api key") || message.toLowerCase().includes("unauthorized")) {
+  const msgLower = (message || "").toLowerCase();
+
+  if (status === 401 || status === 403 || msgLower.includes("invalid api key") || msgLower.includes("unauthorized")) {
     throw new Error(`Authentication Failed: Invalid or missing API key for ${providerName}. Please check your key in Settings.`);
   }
 
-  if (status === 429 || message.toLowerCase().includes("quota") || message.toLowerCase().includes("rate limit")) {
-    throw new Error(`Rate Limit or Quota Exceeded on ${providerName}. If you are using a free tier, please wait a minute, switch models, or use a free OpenRouter/Groq key.`);
+  if (status === 429 || msgLower.includes("quota") || msgLower.includes("rate limit")) {
+    throw new Error(`Rate Limit or Quota Exceeded on ${providerName}. Please wait a moment, switch models, or use a free Groq/OpenRouter key.`);
   }
 
-  if (status === 404 || message.toLowerCase().includes("model not found") || message.toLowerCase().includes("does not exist")) {
-    throw new Error(`Model '${model}' was not found by ${providerName}. Please select or type an active model name in Settings.`);
+  if (status === 404 || msgLower.includes("model not found") || msgLower.includes("does not exist") || msgLower.includes("retired")) {
+    throw new Error(`Model '${model}' was not found by ${providerName}. Please click Auto-Detect or select an active model in Settings.`);
   }
 
   if (status === 400) {
-    throw new Error(`Invalid Request to ${providerName}: ${message}. Check your model version and parameters.`);
+    throw new Error(`Invalid Request to ${providerName}: ${message}.`);
+
   }
 
   throw new Error(`Error from ${providerName} (${status}): ${message}`);
 }
+
+export const executeAICall = callAiApi;

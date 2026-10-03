@@ -1,4 +1,4 @@
-import { PROVIDERS } from "../utils/ai-providers.js";
+import { PROVIDERS, AI_PROVIDERS, detectProviderFromKey, analyzeKeyFigure, probeAndDetectProvider, autoResolveWorkingModel, fetchAvailableModels, testConnection } from "../utils/ai-providers.js";
 
 // DOM Elements
 const providerSelect = document.getElementById("providerSelect");
@@ -7,10 +7,13 @@ const activeProviderBadge = document.getElementById("activeProviderBadge");
 
 const modelInput = document.getElementById("modelInput");
 const modelSuggestionsList = document.getElementById("modelSuggestionsList");
+const autoResolveModelBtn = document.getElementById("autoResolveModelBtn");
+const modelAutoFixNotice = document.getElementById("modelAutoFixNotice");
 
 const apiKeyContainer = document.getElementById("apiKeyContainer");
 const apiKeyInput = document.getElementById("apiKeyInput");
 const toggleApiKeyVisibility = document.getElementById("toggleApiKeyVisibility");
+const keyDetectedNotice = document.getElementById("keyDetectedNotice");
 const keyGuideBox = document.getElementById("keyGuideBox");
 const guideTitle = document.getElementById("guideTitle");
 const guideContent = document.getElementById("guideContent");
@@ -61,8 +64,10 @@ async function loadStoredSettings() {
     "provider",
     "apiKeys",
     "selectedModels",
+    "models",
     "customEndpoints",
     "consultationMode",
+    "summaryStyle",
     "temperature",
     "customSystemPrompt",
     "geminiApiKey",
@@ -75,9 +80,13 @@ async function loadStoredSettings() {
     storedApiKeys.gemini = store.geminiApiKey;
   }
 
-  storedSelectedModels = store.selectedModels || {};
+  storedSelectedModels = store.selectedModels || store.models || {};
   if (store.model && !storedSelectedModels.gemini) {
     storedSelectedModels.gemini = store.model;
+  }
+  // Migrate legacy Gemini models
+  if (storedSelectedModels.gemini === "gemini-2.5-flash" || storedSelectedModels.gemini === "gemini-1.5-flash") {
+    storedSelectedModels.gemini = "gemini-flash-latest";
   }
 
   storedCustomEndpoints = store.customEndpoints || {};
@@ -86,8 +95,8 @@ async function loadStoredSettings() {
   providerSelect.value = currentProvider;
 
   // Preferences
-  if (store.consultationMode) {
-    defaultModeSelect.value = store.consultationMode;
+  if (store.consultationMode || store.summaryStyle) {
+    defaultModeSelect.value = store.consultationMode || store.summaryStyle;
   }
   if (store.temperature !== undefined) {
     temperatureRange.value = store.temperature;
@@ -109,13 +118,7 @@ function updateProviderView(providerId) {
   providerTagline.textContent = provider.tagline || "";
 
   // Update suggestions datalist
-  modelSuggestionsList.innerHTML = "";
-  provider.models.forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.label = m.name;
-    modelSuggestionsList.appendChild(opt);
-  });
+  populateSuggestionsWithList(provider.models);
 
   // Set current model input value
   const savedModel = storedSelectedModels[providerId] || provider.defaultModel;
@@ -124,6 +127,8 @@ function updateProviderView(providerId) {
   // Set API Key input value & placeholder
   apiKeyInput.value = storedApiKeys[providerId] || "";
   apiKeyInput.placeholder = provider.keyPlaceholder || "Enter API key...";
+  keyDetectedNotice.classList.add("hidden");
+  modelAutoFixNotice.classList.add("hidden");
 
   // Custom Endpoint Container visibility
   if (provider.requiresEndpoint) {
@@ -141,6 +146,16 @@ function updateProviderView(providerId) {
   renderGuideBox(provider);
 }
 
+function populateSuggestionsWithList(modelsList) {
+  modelSuggestionsList.innerHTML = "";
+  modelsList.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.label = m.name || m.id;
+    modelSuggestionsList.appendChild(opt);
+  });
+}
+
 // Render instructions for obtaining keys for the selected provider
 function renderGuideBox(provider) {
   guideTitle.textContent = `Getting an API Key for ${provider.name}:`;
@@ -153,7 +168,7 @@ function renderGuideBox(provider) {
           <li>Open <a href="https://aistudio.google.com/app/apikey" target="_blank" class="accent-link">Google AI Studio</a>.</li>
           <li>Sign in with your Google account.</li>
           <li>Click <strong>"Create API Key"</strong> and copy it.</li>
-          <li>Paste the key above. Gemini 2.5 Flash has a generous free tier!</li>
+          <li>Paste the key above. Gemini Flash (Latest Stable) offers a generous free tier!</li>
         </ol>
       `;
       break;
@@ -173,7 +188,7 @@ function renderGuideBox(provider) {
           <li>Visit <a href="https://console.groq.com/keys" target="_blank" class="accent-link">Groq Cloud Console</a>.</li>
           <li>Create a free account and click <strong>"Create API Key"</strong>.</li>
           <li>Copy the key (begins with <code>gsk_</code>) and paste it above.</li>
-          <li>Groq provides ultra-fast response times for Llama 3.3 and Mixtral for free.</li>
+          <li>Groq provides ultra-fast response times for Llama 3.3 and DeepSeek R1 for free.</li>
         </ol>
       `;
       break;
@@ -191,7 +206,7 @@ function renderGuideBox(provider) {
         <ol>
           <li>Visit <a href="https://console.anthropic.com/settings/keys" target="_blank" class="accent-link">Anthropic Console</a>.</li>
           <li>Generate an API key and paste it above.</li>
-          <li>Supports Claude 3.5 Sonnet, Claude 3.5 Haiku, and Claude 3 Opus.</li>
+          <li>Supports Claude 3.7 Sonnet, Claude 3.5 Haiku, and Claude 3 Opus.</li>
         </ol>
       `;
       break;
@@ -231,11 +246,169 @@ function renderGuideBox(provider) {
 function setupEventListeners() {
   // Provider Select Change
   providerSelect.addEventListener("change", (e) => {
-    // Save current values to in-memory cache before switching
     saveCurrentInputsToMemory();
     currentProvider = e.target.value;
     updateProviderView(currentProvider);
     diagnosticCard.classList.add("hidden");
+  });
+
+  // Debounced real-time API key pattern recognition & auto-resolution
+  let optionsKeyDebounceTimer = null;
+  apiKeyInput.addEventListener("input", () => {
+    const val = apiKeyInput.value.trim();
+    clearTimeout(optionsKeyDebounceTimer);
+
+    const figure = analyzeKeyFigure(val);
+    const fastDetected = figure.provider;
+    if (fastDetected && fastDetected !== currentProvider && figure.confidence === "high") {
+      keyDetectedNotice.classList.remove("hidden");
+      keyDetectedNotice.innerHTML = `
+        <span>💡 Recognized <strong>${figure.providerName}</strong> key.</span>
+        <button type="button" class="btn-switch-detected" id="switchDetectedBtn">Switch to ${figure.providerName}</button>
+      `;
+      document.getElementById("switchDetectedBtn")?.addEventListener("click", () => {
+        saveCurrentInputsToMemory();
+        currentProvider = fastDetected;
+        providerSelect.value = fastDetected;
+        updateProviderView(fastDetected);
+        keyDetectedNotice.classList.add("hidden");
+        triggerKeyAutoProbe(val, fastDetected);
+      });
+    } else {
+      keyDetectedNotice.classList.add("hidden");
+    }
+
+    if (val.length >= 15) {
+      optionsKeyDebounceTimer = setTimeout(async () => {
+        const detected = (figure.confidence === "high" ? fastDetected : null) || (await probeAndDetectProvider(val)) || currentProvider;
+        if (detected && detected !== currentProvider) {
+          saveCurrentInputsToMemory();
+          currentProvider = detected;
+          providerSelect.value = detected;
+          updateProviderView(detected);
+        }
+        await triggerKeyAutoProbe(val, currentProvider);
+      }, 550);
+    }
+  });
+
+  async function triggerKeyAutoProbe(apiKey, provider) {
+    if (!apiKey) return;
+    const desiredModel = modelInput.value.trim();
+    const customEndpoint = provider === "custom" ? customEndpointInput.value.trim() : "";
+
+    modelAutoFixNotice.classList.remove("hidden");
+    modelAutoFixNotice.className = "notice-box";
+    modelAutoFixNotice.innerHTML = `<span>⏳ Checking available models for ${PROVIDERS[provider]?.name}...</span>`;
+
+    try {
+      const result = await autoResolveWorkingModel({
+        provider,
+        apiKey,
+        desiredModel,
+        customEndpoint
+      });
+
+      if (result.success) {
+        if (result.availableModels && result.availableModels.length > 0) {
+          populateSuggestionsWithList(result.availableModels);
+        }
+        modelInput.value = result.resolvedModel;
+        storedSelectedModels[provider] = result.resolvedModel;
+        storedApiKeys[provider] = apiKey;
+
+        // Auto-persist healed model to storage
+        chrome.storage.local.set({
+          provider,
+          apiKeys: storedApiKeys,
+          selectedModels: storedSelectedModels,
+          models: storedSelectedModels
+        });
+
+        const latencyBadge = result.latency ? ` <span style="font-size: 11px; opacity: 0.85;">(${result.latency}ms)</span>` : "";
+        let workingModelsHtml = "";
+        if (result.workingModels && result.workingModels.length > 0) {
+          workingModelsHtml = `<div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">Operational Models: <strong>${result.workingModels.slice(0, 6).join(", ")}</strong>${result.workingModels.length > 6 ? '...' : ''}</div>`;
+        }
+
+        modelAutoFixNotice.className = "notice-box success";
+        modelAutoFixNotice.innerHTML = `✅ <strong>Model Verified:</strong> ${result.message}${latencyBadge}${workingModelsHtml}`;
+      } else {
+        modelAutoFixNotice.className = "notice-box warning";
+        modelAutoFixNotice.innerHTML = `
+          <strong>⚠️ Model Notice:</strong> ${escapeHtml(result.error || 'Could not verify model.')}
+          <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify key limits, or manually enter your model name above.')}</div>
+        `;
+      }
+    } catch (err) {
+      modelAutoFixNotice.className = "notice-box danger";
+      modelAutoFixNotice.innerHTML = `
+        <strong>⚠️ Model Detection:</strong> ${escapeHtml(err.message)}
+        <div style="margin-top: 4px; font-size: 11.5px;">You can manually type your model name in the field above (no coding needed) and click Test Connection.</div>
+      `;
+    }
+  }
+
+  // Auto-Detect & Resolve Working Model button
+  autoResolveModelBtn.addEventListener("click", async () => {
+    saveCurrentInputsToMemory();
+    const apiKey = apiKeyInput.value.trim();
+    const desiredModel = modelInput.value.trim();
+    const customEndpoint = currentProvider === "custom" ? customEndpointInput.value.trim() : "";
+
+    if (!apiKey && currentProvider !== "custom") {
+      showNotification(`Please enter an API key for ${PROVIDERS[currentProvider]?.name} first.`, "danger");
+      apiKeyInput.focus();
+      return;
+    }
+
+    autoResolveModelBtn.disabled = true;
+    autoResolveModelBtn.textContent = "⏳ Resolving Models...";
+    modelAutoFixNotice.classList.add("hidden");
+
+    try {
+      const result = await autoResolveWorkingModel({
+        provider: currentProvider,
+        apiKey,
+        desiredModel,
+        customEndpoint
+      });
+
+      if (result.success) {
+        if (result.availableModels && result.availableModels.length > 0) {
+          populateSuggestionsWithList(result.availableModels);
+        }
+        modelInput.value = result.resolvedModel;
+        storedSelectedModels[currentProvider] = result.resolvedModel;
+
+        const latencyBadge = result.latency ? ` <span style="font-size: 11px; opacity: 0.85;">(${result.latency}ms)</span>` : "";
+        let workingModelsHtml = "";
+        if (result.workingModels && result.workingModels.length > 0) {
+          workingModelsHtml = `<div style="margin-top: 4px; font-size: 11px; color: var(--text-secondary);">Operational Models: <strong>${result.workingModels.slice(0, 6).join(", ")}</strong>${result.workingModels.length > 6 ? '...' : ''}</div>`;
+        }
+
+        modelAutoFixNotice.classList.remove("hidden");
+        modelAutoFixNotice.className = "notice-box success";
+        modelAutoFixNotice.innerHTML = `✅ <strong>Model Verified:</strong> ${result.message}${latencyBadge}${workingModelsHtml}`;
+        showNotification(`✅ ${result.message}`, "success");
+      } else {
+        modelAutoFixNotice.classList.remove("hidden");
+        modelAutoFixNotice.className = "notice-box warning";
+        modelAutoFixNotice.innerHTML = `
+          <strong>⚠️ Model Resolution Issue:</strong> ${escapeHtml(result.error)}
+          <div style="margin-top: 4px; font-size: 11.5px;">${escapeHtml(result.help || 'Please verify model name or key limits.')}</div>
+        `;
+        showNotification(`⚠️ ${result.error}`, "danger");
+      }
+    } catch (err) {
+      modelAutoFixNotice.classList.remove("hidden");
+      modelAutoFixNotice.className = "notice-box danger";
+      modelAutoFixNotice.innerHTML = `❌ <strong>Error:</strong> ${escapeHtml(err.message)}`;
+      showNotification(`❌ ${err.message}`, "danger");
+    } finally {
+      autoResolveModelBtn.disabled = false;
+      autoResolveModelBtn.textContent = "🔍 Auto-Detect & Resolve Working Model";
+    }
   });
 
   // Toggle API key password visibility
@@ -254,7 +427,7 @@ function setupEventListeners() {
     tempValueLabel.textContent = e.target.value;
   });
 
-  // Save Settings Button
+  // Save Settings Buttons
   saveSettingsBtn.addEventListener("click", saveAllSettings);
   savePreferencesBtn.addEventListener("click", saveAllSettings);
 
@@ -263,7 +436,7 @@ function setupEventListeners() {
 
   // Quick Preset Buttons
   document.querySelectorAll(".quick-select-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", () => {
       saveCurrentInputsToMemory();
       const targetProvider = btn.getAttribute("data-provider");
       const targetModel = btn.getAttribute("data-model");
@@ -308,8 +481,10 @@ async function saveAllSettings() {
     provider: currentProvider,
     apiKeys: storedApiKeys,
     selectedModels: storedSelectedModels,
+    models: storedSelectedModels,
     customEndpoints: storedCustomEndpoints,
     consultationMode: defaultModeSelect.value,
+    summaryStyle: defaultModeSelect.value,
     temperature: parseFloat(temperatureRange.value),
     customSystemPrompt: customSystemPrompt.value.trim()
   });
@@ -338,46 +513,43 @@ async function runConnectionTest() {
   diagnosticCard.classList.remove("hidden");
   diagnosticCard.innerHTML = `<strong>⏳ Connecting to ${PROVIDERS[provider].name} (${model})...</strong>`;
 
-  const startTime = Date.now();
-
   try {
-    const response = await chrome.runtime.sendMessage({
-      type: "TEST_API",
+    const response = await testConnection({
       provider,
-      model,
       apiKey,
+      model,
       customEndpoint
     });
-
-    const elapsed = Date.now() - startTime;
 
     if (response?.success) {
       diagnosticCard.className = "diagnostic-card success";
       diagnosticCard.innerHTML = `
-        <strong>✅ Connection Successful! (${elapsed}ms)</strong>
-        <p style="margin-top: 6px;">Successfully communicated with <strong>${escapeHtml(model)}</strong> via ${escapeHtml(PROVIDERS[provider].name)}.</p>
-        <p style="font-size: 11px; margin-top: 4px; color: #065f46;">Model test response: "${escapeHtml(response.result)}"</p>
+        <strong>✅ Connection Successful!</strong>
+        <p style="margin-top: 4px; font-size: 12px;">Connected to ${PROVIDERS[provider].name} in ${response.latency}ms.</p>
+        <div style="font-size: 11px; margin-top: 6px; color: var(--text-secondary); background: #ffffff; padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-light);">
+          Response: "${escapeHtml(response.response)}"
+        </div>
       `;
     } else {
       diagnosticCard.className = "diagnostic-card danger";
       diagnosticCard.innerHTML = `
-        <strong>❌ Connection Failed (${elapsed}ms)</strong>
-        <p style="margin-top: 6px;">${escapeHtml(response?.error || "Unknown diagnostic error.")}</p>
-        <div style="font-size: 11px; margin-top: 6px; color: #991b1b;">
-          Check that your API key is active and that the model name <code>${escapeHtml(model)}</code> is spelled correctly.
-        </div>
+        <strong>❌ Connection Failed</strong>
+        <p style="margin-top: 4px; font-size: 12px;">${escapeHtml(response?.error || 'Unknown error occurred.')}</p>
       `;
     }
   } catch (err) {
     diagnosticCard.className = "diagnostic-card danger";
-    diagnosticCard.innerHTML = `<strong>❌ Request Failed:</strong> ${escapeHtml(err.message)}`;
+    diagnosticCard.innerHTML = `
+      <strong>❌ Connection Failed</strong>
+      <p style="margin-top: 4px; font-size: 12px;">${escapeHtml(err.message)}</p>
+    `;
   } finally {
     testConnectionBtn.disabled = false;
     testBtnText.textContent = "Test Connection";
   }
 }
 
-// Notification Banner Helper
+// Display toast notification in options header
 function showNotification(message, type = "success") {
   statusBanner.textContent = message;
   statusBanner.className = `status-banner ${type}`;
@@ -389,7 +561,6 @@ function showNotification(message, type = "success") {
 }
 
 function escapeHtml(str) {
-  if (!str) return "";
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

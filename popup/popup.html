@@ -22,6 +22,7 @@
             <span class="status-dot"></span>
             <span id="badgeProviderName">Gemini</span>
           </button>
+          <button id="quickTestBtn" class="icon-btn" title="Quick Connection Test">⚡</button>
           <button id="openSettingsBtn" class="icon-btn" title="Open Settings">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"></circle>
@@ -43,10 +44,12 @@
         <div class="quick-key-form">
           <div class="quick-row">
             <select id="quickProviderSelect" class="form-select"></select>
-            <input type="password" id="quickApiKeyInput" placeholder="Paste your API key here..." class="form-input" />
+            <input type="password" id="quickApiKeyInput" placeholder="Paste your API key here..." class="form-input" autocomplete="off" />
           </div>
+          <div id="keyDetectionBadge" class="detection-badge hidden"></div>
           <div class="quick-row">
-            <input type="text" id="quickModelInput" placeholder="Model name (e.g. gemini-2.5-flash)" class="form-input" />
+            <input type="text" id="quickModelInput" placeholder="Model name (e.g. gemini-flash-latest)" class="form-input" />
+            <button id="quickAutoResolveBtn" class="btn btn-secondary btn-sm" title="Probe provider API & resolve working model">🔍 Auto-Resolve</button>
             <button id="quickSaveKeyBtn" class="btn btn-primary btn-sm">Save & Activate</button>
           </div>
           <div class="quick-links">
@@ -97,14 +100,21 @@
         <div class="output-header">
           <span class="output-title">Consultation Result</span>
           <div class="output-tools">
-            <button id="copyBtn" class="btn-tool" title="Copy Consultation to Clipboard">
+            <button id="copyBtn" class="btn-tool" title="Copy Plain Text to Clipboard">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
-              <span>Copy</span>
+              <span id="copyBtnText">Copy</span>
             </button>
-            <button id="exportPdfBtn" class="btn-tool" title="Export as PDF / Print">
+            <button id="copyMarkdownBtn" class="btn-tool" title="Copy as Markdown">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="7 15 10 9 13 15 16 9 19 15"></polyline>
+              </svg>
+              <span>Markdown</span>
+            </button>
+            <button id="exportPdfBtn" class="btn-tool" title="Export as PDF Document">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                 <polyline points="14 2 14 8 20 8"></polyline>
@@ -124,6 +134,20 @@
             <div class="empty-desc">Choose a mode above and click "Analyze Page" to consult on the active webpage. Highlight text to consult on a specific section.</div>
           </div>
         </div>
+      </div>
+
+      <!-- Interactive Follow-up Consultation Section -->
+      <div id="qaSection" class="qa-section hidden">
+        <div class="qa-input-wrapper">
+          <input 
+            type="text" 
+            id="qaInput" 
+            class="form-input qa-input" 
+            placeholder="Ask a follow-up consultation question..." 
+          />
+          <button id="qaSendBtn" class="btn btn-primary btn-sm qa-send-btn" title="Send question">➤</button>
+        </div>
+        <div id="qaAnswer" class="qa-answer-card hidden"></div>
       </div>
 
       <!-- Bottom Status & Tools -->

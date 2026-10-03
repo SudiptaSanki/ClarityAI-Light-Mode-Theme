@@ -1,5 +1,5 @@
-import { callAiApi, PROVIDERS } from "./utils/ai-providers.js";
-import { CONSULTATION_MODES, buildConsultationPrompt } from "./utils/consultation.js";
+import { callAiApi, PROVIDERS, autoResolveWorkingModel, fetchAvailableModels, testConnection } from "./utils/ai-providers.js";
+import { CONSULTATION_MODES, buildConsultationPrompt, buildFollowUpPrompt } from "./utils/consultation.js";
 import { extractPageContent } from "./utils/extractor.js";
 
 // Setup context menus
@@ -11,13 +11,18 @@ chrome.runtime.onInstalled.addListener(() => {
       contexts: ["page", "selection"]
     });
     chrome.contextMenus.create({
+      id: "clarity-takeaways",
+      title: "ClarityAI: Key Takeaways",
+      contexts: ["page", "selection"]
+    });
+    chrome.contextMenus.create({
       id: "clarity-deep-consult",
       title: "ClarityAI: Deep Consultation",
       contexts: ["page", "selection"]
     });
     chrome.contextMenus.create({
-      id: "clarity-takeaways",
-      title: "ClarityAI: Key Takeaways",
+      id: "clarity-critical",
+      title: "ClarityAI: Critical Review & Assessment",
       contexts: ["page", "selection"]
     });
   });
@@ -31,6 +36,7 @@ async function initializeSettings() {
     "provider",
     "apiKeys",
     "selectedModels",
+    "models",
     "customEndpoints",
     "consultationMode",
     "geminiApiKey",
@@ -47,24 +53,31 @@ async function initializeSettings() {
   }
 
   if (!data.provider) updates.provider = "gemini";
-  if (!data.selectedModels) {
-    updates.selectedModels = {
-      gemini: data.model || "gemini-2.5-flash",
-      openrouter: "meta-llama/llama-3.3-70b-instruct:free",
-      groq: "llama-3.3-70b-versatile",
-      openai: "gpt-4o-mini",
-      anthropic: "claude-3-5-sonnet-latest",
-      deepseek: "deepseek-chat",
-      mistral: "mistral-small-latest",
-      custom: "llama3"
-    };
+
+  const currentModels = data.selectedModels || data.models || {};
+  // Migrate legacy Gemini models to latest stable
+  if (!currentModels.gemini || currentModels.gemini === "gemini-2.5-flash" || currentModels.gemini === "gemini-1.5-flash") {
+    currentModels.gemini = "gemini-flash-latest";
   }
+  if (!currentModels.openrouter) currentModels.openrouter = "meta-llama/llama-3.3-70b-instruct:free";
+  if (!currentModels.groq) currentModels.groq = "llama-3.3-70b-versatile";
+  if (!currentModels.openai) currentModels.openai = "gpt-4o-mini";
+  if (!currentModels.anthropic) currentModels.anthropic = "claude-3-5-haiku-latest";
+  if (!currentModels.deepseek) currentModels.deepseek = "deepseek-chat";
+  if (!currentModels.mistral) currentModels.mistral = "mistral-small-latest";
+  if (!currentModels.custom) currentModels.custom = "llama3";
+
+  updates.selectedModels = currentModels;
+  updates.models = currentModels;
+
   if (!data.customEndpoints) {
     updates.customEndpoints = {
       custom: "http://localhost:11434/v1/chat/completions"
     };
   }
-  if (!data.consultationMode) updates.consultationMode = "summary_concise";
+  const mode = data.consultationMode || data.summaryStyle || "summary_concise";
+  if (!data.consultationMode) updates.consultationMode = mode;
+  if (!data.summaryStyle) updates.summaryStyle = mode;
 
   if (Object.keys(updates).length > 0) {
     await chrome.storage.local.set(updates);
@@ -77,24 +90,28 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   let mode = "summary_concise";
   if (info.menuItemId === "clarity-deep-consult") mode = "consultation_deep";
-  if (info.menuItemId === "clarity-takeaways") mode = "summary_bullets";
+  else if (info.menuItemId === "clarity-takeaways") mode = "summary_bullets";
+  else if (info.menuItemId === "clarity-critical") mode = "critical_review";
 
   try {
-    await chrome.storage.local.set({ isSummarizing: true });
+    await chrome.storage.local.set({
+      isSummarizing: true,
+      summarizingStartTime: Date.now()
+    });
 
-    // Extract text from tab
     const [execResult] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: extractPageContent
     });
 
     const pageData = execResult?.result;
-    if (!pageData || !pageData.content) {
+    const textContent = pageData?.content || pageData?.text;
+    if (!pageData || !textContent) {
       throw new Error("Could not extract readable text from this page.");
     }
 
     const consultationResult = await runConsultation({
-      text: pageData.content,
+      text: textContent,
       mode,
       title: pageData.title,
       url: pageData.url
@@ -102,6 +119,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     await chrome.storage.local.set({
       lastSummary: consultationResult.output,
+      lastPageText: textContent.substring(0, 25000),
       lastMetadata: {
         title: pageData.title,
         url: pageData.url,
@@ -130,6 +148,7 @@ async function runConsultation({ text, mode = "summary_concise", customQuestion 
     "provider",
     "apiKeys",
     "selectedModels",
+    "models",
     "customEndpoints",
     "temperature",
     "customSystemPrompt"
@@ -137,17 +156,20 @@ async function runConsultation({ text, mode = "summary_concise", customQuestion 
 
   const provider = store.provider || "gemini";
   const apiKeys = store.apiKeys || {};
-  const selectedModels = store.selectedModels || {};
+  const selectedModels = store.selectedModels || store.models || {};
   const customEndpoints = store.customEndpoints || {};
 
   const apiKey = apiKeys[provider] || "";
-  const model = selectedModels[provider] || PROVIDERS[provider]?.defaultModel || "gemini-2.5-flash";
+  const model = selectedModels[provider] || PROVIDERS[provider]?.defaultModel || "gemini-flash-latest";
   const customEndpoint = customEndpoints[provider] || "";
   const temperature = store.temperature ?? 0.2;
 
-  const prompt = buildConsultationPrompt(mode, text, customQuestion);
-  const systemPrompt = store.customSystemPrompt || 
-    "You are ClarityAI, an executive AI consultation assistant. Analyze and summarize web content clearly, accurately, and thoroughly with structured markdown formatting.";
+  const prompt = buildConsultationPrompt(mode, text, customQuestion, title, url);
+  const modeDef = CONSULTATION_MODES[mode];
+  const baseSystemPrompt = modeDef?.systemPrompt || "You are ClarityAI, an executive AI consultation assistant. Analyze and summarize web content clearly, accurately, and thoroughly with structured markdown formatting.";
+  const systemPrompt = store.customSystemPrompt && store.customSystemPrompt.trim()
+    ? `${store.customSystemPrompt.trim()}\n\n${baseSystemPrompt}`
+    : baseSystemPrompt;
 
   const output = await callAiApi({
     provider,
@@ -173,51 +195,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const { provider, model, apiKey, customEndpoint } = message;
-        const testPrompt = "Please respond with 'ClarityAI connection successful' if you can read this.";
-        
-        const result = await callAiApi({
-          provider: provider || "gemini",
-          model,
-          apiKey,
-          customEndpoint,
-          systemPrompt: "You are an API diagnostic tester.",
-          prompt: testPrompt,
-          temperature: 0.1
-        });
-
-        sendResponse({ success: true, result });
+        const res = await testConnection({ provider, apiKey, model, customEndpoint });
+        sendResponse({ success: true, result: res.response, latency: res.latency });
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
     })();
-    return true; // Keep channel open for async response
+    return true;
   }
 
   // 2. Perform Consultation on Active Tab
   if (message?.type === "RUN_CONSULTATION") {
     (async () => {
       try {
-        await chrome.storage.local.set({ isSummarizing: true });
+        const activeSettings = await getActiveAiSettings();
+        await chrome.storage.local.set({
+          isSummarizing: true,
+          summarizingStartTime: Date.now(),
+          isSearch: !!message.customQuestion,
+          activeModel: activeSettings.model,
+          activeProvider: activeSettings.provider
+        });
 
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab?.id) {
           throw new Error("No active browser tab detected.");
         }
 
-        // Extract content from tab
         const [execResult] = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           func: extractPageContent
         });
 
         const pageData = execResult?.result;
-        if (!pageData || !pageData.content || pageData.content.trim().length === 0) {
+        const textContent = pageData?.content || pageData?.text;
+        if (!pageData || !textContent || textContent.trim().length === 0) {
           throw new Error("No readable text found on this page. If this page uses protected frames, try highlighting a paragraph.");
         }
 
         const { mode, customQuestion } = message;
         const result = await runConsultation({
-          text: pageData.content,
+          text: textContent,
           mode: mode || "summary_concise",
           customQuestion: customQuestion || "",
           title: pageData.title,
@@ -237,6 +255,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         await chrome.storage.local.set({
           lastSummary: result.output,
+          lastPageText: textContent.substring(0, 25000),
           lastMetadata: metadata,
           isSummarizing: false
         });
@@ -258,7 +277,89 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // 3. Extract text preview only
+  // 3. Interactive Follow-up Consultation Question (Q&A)
+  if (message?.type === "ASK_CONSULTATION") {
+    (async () => {
+      try {
+        const { question, contextSummary = "", pageText = "" } = message;
+        if (!question || !question.trim()) {
+          throw new Error("Please enter a question to ask.");
+        }
+
+        const store = await chrome.storage.local.get([
+          "provider",
+          "apiKeys",
+          "selectedModels",
+          "models",
+          "customEndpoints",
+          "temperature",
+          "customSystemPrompt"
+        ]);
+
+        const provider = store.provider || "gemini";
+        const apiKeys = store.apiKeys || {};
+        const selectedModels = store.selectedModels || store.models || {};
+        const customEndpoints = store.customEndpoints || {};
+
+        const apiKey = apiKeys[provider] || "";
+        const model = selectedModels[provider] || PROVIDERS[provider]?.defaultModel || "gemini-flash-latest";
+        const customEndpoint = customEndpoints[provider] || "";
+
+        const { systemPrompt, userPrompt } = buildFollowUpPrompt({
+          contextSummary,
+          pageText,
+          question: question.trim()
+        });
+
+        const finalSystemPrompt = store.customSystemPrompt && store.customSystemPrompt.trim()
+          ? `${store.customSystemPrompt.trim()}\n\n${systemPrompt}`
+          : systemPrompt;
+
+        const answer = await callAiApi({
+          provider,
+          model,
+          apiKey,
+          customEndpoint,
+          systemPrompt: finalSystemPrompt,
+          prompt: userPrompt,
+          temperature: 0.3
+        });
+
+        sendResponse({ success: true, answer });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // 4. Auto-Resolve Working Model
+  if (message?.type === "RESOLVE_MODEL") {
+    (async () => {
+      try {
+        const result = await autoResolveWorkingModel(message);
+        sendResponse(result);
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // 5. Fetch Models dynamically from provider API
+  if (message?.type === "FETCH_MODELS") {
+    (async () => {
+      try {
+        const models = await fetchAvailableModels(message);
+        sendResponse({ success: true, models });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  // 6. Extract text preview only
   if (message?.type === "EXTRACT_PAGE_TEXT") {
     (async () => {
       try {

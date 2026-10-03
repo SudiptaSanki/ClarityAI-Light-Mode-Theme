@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "ClarityAI - Light Mode",
-  "version": "0.2.0",
+  "version": "2.0.0",
   "description": "Universal AI web page consultation, summarization, and PDF export with support for any model provider (Gemini, OpenRouter, Groq, OpenAI, Claude, Local).",
   "permissions": [
     "storage",
     "activeTab",
     "scripting",
     "contextMenus",
-    "tabs"
+    "tabs",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
