@@ -299,17 +299,30 @@ export async function probeGeminiModelMatrix(apiKey) {
   }
   const key = apiKey.trim();
 
+  // Flash models must always be prioritized over Pro models for free-tier reliability
   const candidateModels = [
     "gemini-3.5-flash",
     "gemini-flash-latest",
-    "gemini-3.8-flash",
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-flash-lite-latest",
+    "gemini-3.8-flash",
+    "gemini-1.5-flash",
     "gemini-pro-latest",
-    "gemini-2.5-pro",
-    "gemini-1.5-flash"
+    "gemini-2.5-pro"
   ];
+
+  const priorityOrder = {
+    "gemini-3.5-flash": 1,
+    "gemini-flash-latest": 2,
+    "gemini-2.5-flash": 3,
+    "gemini-2.0-flash": 4,
+    "gemini-flash-lite-latest": 5,
+    "gemini-3.8-flash": 6,
+    "gemini-1.5-flash": 7,
+    "gemini-pro-latest": 50,
+    "gemini-2.5-pro": 51
+  };
 
   const probePromises = candidateModels.map(async (modelId) => {
     const startTime = Date.now();
@@ -327,13 +340,21 @@ export async function probeGeminiModelMatrix(apiKey) {
       });
       const latency = Date.now() - startTime;
 
-      if (res.ok || res.status === 429) {
+      if (res.ok) {
         return {
           modelId,
           working: true,
-          status: res.status,
+          status: 200,
           latency,
           error: null
+        };
+      } else if (res.status === 429) {
+        return {
+          modelId,
+          working: false,
+          status: 429,
+          latency,
+          error: "Rate limited / Quota exceeded"
         };
       } else {
         const errText = await parseErrorResponse(res);
@@ -357,10 +378,17 @@ export async function probeGeminiModelMatrix(apiKey) {
   });
 
   const settled = await Promise.allSettled(probePromises);
+  
+  // Only models with HTTP 200 actually generated tokens and have available quota
   const workingModels = settled
-    .filter(r => r.status === "fulfilled" && r.value.working)
+    .filter(r => r.status === "fulfilled" && r.value.working && r.value.status === 200)
     .map(r => r.value)
-    .sort((a, b) => a.latency - b.latency);
+    .sort((a, b) => {
+      const pA = priorityOrder[a.modelId] || 99;
+      const pB = priorityOrder[b.modelId] || 99;
+      if (pA !== pB) return pA - pB;
+      return a.latency - b.latency;
+    });
 
   if (workingModels.length > 0) {
     const bestCandidate = workingModels[0];
@@ -370,6 +398,24 @@ export async function probeGeminiModelMatrix(apiKey) {
       latency: bestCandidate.latency,
       workingModels: workingModels.map(m => m.modelId),
       details: workingModels
+    };
+  }
+
+  // Check if all models failed due to 429 quota exhaustion
+  const rateLimited = settled
+    .filter(r => r.status === "fulfilled" && r.value.status === 429)
+    .map(r => r.value.modelId);
+
+  if (rateLimited.length > 0) {
+    const bestFallback = candidateModels.find(m => rateLimited.includes(m)) || "gemini-3.5-flash";
+    return {
+      success: false,
+      bestModel: bestFallback,
+      latency: 0,
+      workingModels: [],
+      rateLimited: true,
+      error: "Google Gemini Free Tier Rate Limit / Quota Exceeded (HTTP 429).",
+      help: "Your key is authorized, but Gemini free-tier RPM/quota is temporarily exhausted. Please wait a short moment or switch to Groq (100% Free & Lightning Fast)."
     };
   }
 
@@ -628,7 +674,8 @@ export async function autoResolveWorkingModel({ provider = "", apiKey = "", desi
         let chosenModel = targetModel;
         let isChanged = false;
 
-        if (matrixResult.workingModels.includes(targetModel)) {
+        // If targetModel is already in workingModels and is not a Pro model (unless only Pro works), keep it
+        if (matrixResult.workingModels.includes(targetModel) && (!targetModel.includes("pro") || matrixResult.workingModels.every(m => m.includes("pro")))) {
           chosenModel = targetModel;
           isChanged = false;
         } else {
@@ -923,12 +970,12 @@ async function callGeminiApi({ model, apiKey, systemPrompt, prompt, temperature 
     if (!response.ok) {
       const errorDetails = await parseErrorResponse(response);
 
-      // Handle 404 by attempting fallback to active candidate model
-      if (response.status === 404) {
+      // Handle 404 or 429 on Pro models by attempting fallback to active Flash models
+      if (response.status === 404 || (response.status === 429 && cleanModel.includes("pro"))) {
         for (const candidate of fallbackModels) {
           if (candidate === cleanModel) continue;
           try {
-            console.warn(`Model ${cleanModel} returned 404. Attempting auto-healing fallback to '${candidate}'...`);
+            console.warn(`Model ${cleanModel} returned ${response.status}. Attempting auto-healing fallback to '${candidate}'...`);
             const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidate)}:generateContent?key=${encodeURIComponent(apiKey)}`;
             const fbRes = await fetch(fallbackUrl, {
               method: "POST",
@@ -949,7 +996,7 @@ async function callGeminiApi({ model, apiKey, systemPrompt, prompt, temperature 
             }
           } catch (_) {}
         }
-        throw new Error(`Model '${model}' is not available for your Gemini API key (${errorDetails || '404'}). Please select 'Gemini Flash (Latest Stable)' or click Auto-Detect.`);
+        throw new Error(`Model '${model}' is not available or quota exceeded for your Gemini API key (${errorDetails || response.status}). Please select 'Gemini Flash (Latest Stable)' or click Auto-Detect.`);
       }
 
       // Handle 503 or 429 with backoff retry

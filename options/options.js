@@ -334,6 +334,10 @@ function setupEventListeners() {
         modelAutoFixNotice.className = "notice-box success";
         modelAutoFixNotice.innerHTML = `✅ <strong>Model Verified:</strong> ${result.message}${latencyBadge}${workingModelsHtml}`;
       } else {
+        if (result.resolvedModel) {
+          modelInput.value = result.resolvedModel;
+          storedSelectedModels[provider] = result.resolvedModel;
+        }
         modelAutoFixNotice.className = "notice-box warning";
         modelAutoFixNotice.innerHTML = `
           <strong>⚠️ Model Notice:</strong> ${escapeHtml(result.error || 'Could not verify model.')}
@@ -392,6 +396,10 @@ function setupEventListeners() {
         modelAutoFixNotice.innerHTML = `✅ <strong>Model Verified:</strong> ${result.message}${latencyBadge}${workingModelsHtml}`;
         showNotification(`✅ ${result.message}`, "success");
       } else {
+        if (result.resolvedModel) {
+          modelInput.value = result.resolvedModel;
+          storedSelectedModels[currentProvider] = result.resolvedModel;
+        }
         modelAutoFixNotice.classList.remove("hidden");
         modelAutoFixNotice.className = "notice-box warning";
         modelAutoFixNotice.innerHTML = `
@@ -453,6 +461,58 @@ function setupEventListeners() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
+
+  // Sidebar Navigation & Section Highlighting
+  setupSidebarNavigation();
+}
+
+function setupSidebarNavigation() {
+  const navItems = document.querySelectorAll(".sidebar-nav .nav-item");
+  const sectionIds = ["providers-section", "consultation-section", "quick-presets-section"];
+  const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+  function setActiveNavItem(targetId) {
+    navItems.forEach(item => {
+      const section = item.getAttribute("data-section") || item.getAttribute("href")?.replace("#", "");
+      if (section === targetId) {
+        item.classList.add("active");
+      } else {
+        item.classList.remove("active");
+      }
+    });
+  }
+
+  // Handle click on sidebar nav links
+  navItems.forEach(item => {
+    item.addEventListener("click", (e) => {
+      e.preventDefault();
+      const targetId = item.getAttribute("data-section") || item.getAttribute("href")?.replace("#", "");
+      const targetSection = document.getElementById(targetId);
+      if (targetSection) {
+        setActiveNavItem(targetId);
+        targetSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (history.replaceState) {
+          history.replaceState(null, "", `#${targetId}`);
+        }
+      }
+    });
+  });
+
+  // ScrollSpy / IntersectionObserver to track viewport position
+  if ("IntersectionObserver" in window && sections.length > 0) {
+    const observer = new IntersectionObserver((entries) => {
+      const visibleEntries = entries.filter(e => e.isIntersecting);
+      if (visibleEntries.length > 0) {
+        visibleEntries.sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top));
+        setActiveNavItem(visibleEntries[0].target.id);
+      }
+    }, {
+      rootMargin: "-15% 0px -50% 0px",
+      threshold: [0.1, 0.3, 0.6]
+    });
+
+    sections.forEach(s => observer.observe(s));
+  }
 }
 
 function saveCurrentInputsToMemory() {
